@@ -27,7 +27,7 @@ export async function connectDatabase(): Promise<Pool> {
   }
 
   // Handle pool errors
-  pool.on('error', (err) => {
+  pool.on('error', (err: Error) => {
     logger.error('Unexpected database pool error:', err);
   });
 

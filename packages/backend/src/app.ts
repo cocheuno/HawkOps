@@ -8,7 +8,6 @@ import { createRedisStore } from './config/redis';
 import routes from './routes';
 import { errorHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
-import logger from './utils/logger';
 
 const app = express();
 
@@ -69,12 +68,12 @@ if (env.NODE_ENV === 'production') {
   app.use(express.static(frontendPath));
 
   // Handle client-side routing - send index.html for all non-API routes
-  app.get('*', (req, res) => {
+  app.get('*', (_req, res) => {
     res.sendFile(path.join(frontendPath, 'index.html'));
   });
 } else {
   // In development, just send a message
-  app.get('*', (req, res) => {
+  app.get('*', (_req, res) => {
     res.json({
       message: 'HawkOps API Server',
       frontend: 'Run frontend separately in development mode'
