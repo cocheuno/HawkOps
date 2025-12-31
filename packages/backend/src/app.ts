@@ -4,7 +4,6 @@ import helmet from 'helmet';
 import session from 'express-session';
 import path from 'path';
 import { env } from './config/env';
-import { createRedisStore } from './config/redis';
 import routes from './routes';
 import { errorHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
@@ -39,18 +38,8 @@ app.use(express.urlencoded({ extended: true }));
 // Request logging
 app.use(requestLogger);
 
-// Session configuration
-app.use(session({
-  store: createRedisStore(),
-  secret: env.SESSION_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: env.NODE_ENV === 'production',
-    httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
-  }
-}));
+// Session configuration will be set up after Redis connection in server.ts
+// Placeholder for now - will be configured dynamically
 
 // Health check endpoint
 app.get('/health', (_req, res) => {
@@ -83,5 +72,20 @@ if (env.NODE_ENV === 'production') {
 
 // Error handling middleware (must be last)
 app.use(errorHandler);
+
+// Function to configure session after Redis is ready
+export function configureSession(redisStore: any) {
+  app.use(session({
+    store: redisStore,
+    secret: env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: env.NODE_ENV === 'production',
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    }
+  }));
+}
 
 export default app;
