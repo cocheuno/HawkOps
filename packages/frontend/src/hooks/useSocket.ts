@@ -5,7 +5,7 @@ export function useSocket(sessionId: string | null) {
   useEffect(() => {
     if (!sessionId) return;
 
-    const socket = socketService.connect(sessionId);
+    socketService.connect(sessionId);
 
     return () => {
       socketService.disconnect();
