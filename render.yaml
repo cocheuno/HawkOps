@@ -1,10 +1,12 @@
 services:
-  # Backend + Frontend (monolithic deployment)
+  # Web Service (Backend + Frontend)
   - type: web
     name: hawkops
     runtime: node
+    plan: starter
     buildCommand: npm install && npm run build
     startCommand: npm start
+    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
@@ -21,20 +23,17 @@ services:
         generateValue: true
       - key: ANTHROPIC_API_KEY
         sync: false
-      - key: CLIENT_URL
-        value: https://hawkops.onrender.com
-      - key: SOCKET_CORS_ORIGIN
-        value: https://hawkops.onrender.com
-
-  # PostgreSQL Database
-  - type: pserv
-    name: hawkops-db
-    runtime: postgresql
-    plan: starter
-    ipAllowList: []
 
   # Redis Cache
   - type: redis
     name: hawkops-redis
+    plan: starter
+    maxmemoryPolicy: noeviction
+    ipAllowList: []
+
+databases:
+  # PostgreSQL Database
+  - name: hawkops-db
+    databaseName: hawkops
     plan: starter
     ipAllowList: []
