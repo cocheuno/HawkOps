@@ -1,10 +1,10 @@
 import { createServer } from 'http';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import app from './app';
+import app, { configureSession } from './app';
 import { initializeSocket } from './socket';
 import { connectDatabase, disconnectDatabase } from './config/database';
-import { connectRedis, disconnectRedis } from './config/redis';
+import { connectRedis, disconnectRedis, createRedisStore } from './config/redis';
 import { env } from './config/env';
 import logger from './utils/logger';
 
@@ -35,6 +35,11 @@ async function startServer() {
     // Connect to Redis
     await connectRedis();
     logger.info('Redis connected successfully');
+
+    // Configure session with Redis store
+    const redisStore = createRedisStore();
+    configureSession(redisStore);
+    logger.info('Session middleware configured');
 
     // Start HTTP server
     httpServer.listen(env.PORT, () => {
