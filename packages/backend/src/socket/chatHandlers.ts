@@ -5,7 +5,7 @@ export function chatHandlers(io: Server, socket: Socket) {
   // Send chat message
   socket.on('chat:send', async (data: { gameId: string; teamId: string; message: string; userId: string; userName: string }) => {
     try {
-      const { gameId, teamId, message, userId, userName } = data;
+      const { teamId, message, userId, userName } = data;
 
       logger.info(`Chat message from ${userName} in team ${teamId}`);
 
