@@ -1,4 +1,6 @@
 import { createServer } from 'http';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import app from './app';
 import { initializeSocket } from './socket';
 import { connectDatabase, disconnectDatabase } from './config/database';
@@ -12,8 +14,23 @@ const io = initializeSocket(httpServer);
 async function startServer() {
   try {
     // Connect to database
-    await connectDatabase();
+    const pool = await connectDatabase();
     logger.info('Database connected successfully');
+
+    // Run migrations
+    try {
+      logger.info('Running database migrations...');
+      const schemaSQL = readFileSync(
+        join(__dirname, 'database/schema.sql'),
+        'utf-8'
+      );
+      await pool.query(schemaSQL);
+      logger.info('Database migrations completed successfully');
+    } catch (error) {
+      logger.error('Migration failed:', error);
+      // Don't fail startup if migrations fail - tables might already exist
+      logger.warn('Continuing server startup despite migration warning');
+    }
 
     // Connect to Redis
     await connectRedis();
