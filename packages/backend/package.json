@@ -6,7 +6,6 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "postbuild": "node dist/scripts/migrate.js",
     "start": "node dist/server.js",
     "lint": "eslint src --ext .ts",
     "test": "jest",
