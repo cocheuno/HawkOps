@@ -1,0 +1,40 @@
+services:
+  # Backend + Frontend (monolithic deployment)
+  - type: web
+    name: hawkops
+    runtime: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: hawkops-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: hawkops-redis
+          property: connectionString
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: CLIENT_URL
+        value: https://hawkops.onrender.com
+      - key: SOCKET_CORS_ORIGIN
+        value: https://hawkops.onrender.com
+
+  # PostgreSQL Database
+  - type: pserv
+    name: hawkops-db
+    runtime: postgresql
+    plan: starter
+    ipAllowList: []
+
+  # Redis Cache
+  - type: redis
+    name: hawkops-redis
+    plan: starter
+    ipAllowList: []

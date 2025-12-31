@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import session from 'express-session';
+import path from 'path';
 import { env } from './config/env';
 import { createRedisStore } from './config/redis';
 import routes from './routes';
@@ -12,7 +13,17 @@ import logger from './utils/logger';
 const app = express();
 
 // Security middleware
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: env.NODE_ENV === 'production' ? {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "wss:", "ws:"],
+    }
+  } : false
+}));
 
 // CORS configuration
 app.use(cors({
@@ -49,6 +60,27 @@ app.get('/health', (req, res) => {
 
 // API routes
 app.use('/api', routes);
+
+// Serve static files from frontend build in production
+if (env.NODE_ENV === 'production') {
+  const frontendPath = path.join(__dirname, '../../frontend/dist');
+
+  // Serve static files
+  app.use(express.static(frontendPath));
+
+  // Handle client-side routing - send index.html for all non-API routes
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(frontendPath, 'index.html'));
+  });
+} else {
+  // In development, just send a message
+  app.get('*', (req, res) => {
+    res.json({
+      message: 'HawkOps API Server',
+      frontend: 'Run frontend separately in development mode'
+    });
+  });
+}
 
 // Error handling middleware (must be last)
 app.use(errorHandler);

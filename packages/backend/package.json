@@ -6,10 +6,12 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
+    "postbuild": "node dist/scripts/migrate.js",
     "start": "node dist/server.js",
     "lint": "eslint src --ext .ts",
     "test": "jest",
     "db:migrate": "tsx src/scripts/migrate.ts",
+    "db:migrate:prod": "node dist/scripts/migrate.js",
     "db:seed": "tsx src/scripts/seed.ts"
   },
   "dependencies": {
