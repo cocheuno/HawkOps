@@ -3,7 +3,7 @@ services:
   - type: web
     name: hawkops
     runtime: node
-    plan: starter
+    plan: free
     buildCommand: npm install && npm run build
     startCommand: npm start
     healthCheckPath: /health
@@ -27,7 +27,7 @@ services:
   # Redis Cache
   - type: redis
     name: hawkops-redis
-    plan: starter
+    plan: free
     maxmemoryPolicy: noeviction
     ipAllowList: []
 
@@ -35,5 +35,5 @@ databases:
   # PostgreSQL Database
   - name: hawkops-db
     databaseName: hawkops
-    plan: starter
+    plan: free
     ipAllowList: []
