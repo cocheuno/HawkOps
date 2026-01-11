@@ -30,7 +30,8 @@ export default function CreateGameModal({ isOpen, onClose, onSubmit, facilitator
   const [durationMinutes, setDurationMinutes] = useState(75);
   const [teams, setTeams] = useState<Team[]>([
     { id: '1', name: 'Team Alpha', role: 'Service Desk' },
-    { id: '2', name: 'Team Bravo', role: 'Technical Operations' }
+    { id: '2', name: 'Team Bravo', role: 'Technical Operations' },
+    { id: '3', name: 'Team Charlie', role: 'Management/CAB' }
   ]);
 
   if (!isOpen) return null;
@@ -75,11 +76,11 @@ export default function CreateGameModal({ isOpen, onClose, onSubmit, facilitator
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           <div>
             <label htmlFor="gameName" className="block text-sm font-medium text-gray-700 mb-2">Game Name *</label>
-            <input type="text" id="gameName" value={gameName} onChange={(e) => setGameName(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hawk-purple focus:border-transparent" placeholder="e.g., ITSM Training Session 1" required />
+            <input type="text" id="gameName" value={gameName} onChange={(e) => setGameName(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hawk-purple focus:border-transparent text-gray-900" placeholder="e.g., ITSM Training Session 1" required />
           </div>
           <div>
             <label htmlFor="facilitatorName" className="block text-sm font-medium text-gray-700 mb-2">Facilitator Name</label>
-            <input type="text" id="facilitatorName" value={facilitatorName} className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50" readOnly />
+            <input type="text" id="facilitatorName" value={facilitatorName} className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900" readOnly />
             <p className="text-sm text-gray-500 mt-1">You will be the game facilitator</p>
           </div>
           <div>
@@ -112,11 +113,11 @@ export default function CreateGameModal({ isOpen, onClose, onSubmit, facilitator
                   <div className="space-y-3">
                     <div>
                       <label className="block text-sm font-medium text-gray-600 mb-1">Team Name</label>
-                      <input type="text" value={team.name} onChange={(e) => handleTeamNameChange(team.id, e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hawk-purple focus:border-transparent" placeholder="Enter team name" required />
+                      <input type="text" value={team.name} onChange={(e) => handleTeamNameChange(team.id, e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hawk-purple focus:border-transparent text-gray-900" placeholder="Enter team name" required />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-600 mb-1">Team Role</label>
-                      <select value={team.role} onChange={(e) => handleTeamRoleChange(team.id, e.target.value as Team['role'])} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hawk-purple focus:border-transparent" required>
+                      <select value={team.role} onChange={(e) => handleTeamRoleChange(team.id, e.target.value as Team['role'])} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hawk-purple focus:border-transparent text-gray-900" required>
                         {TEAM_ROLES.map(role => (
                           <option key={role.value} value={role.value}>{role.label}</option>
                         ))}
