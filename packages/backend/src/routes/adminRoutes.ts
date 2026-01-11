@@ -14,10 +14,18 @@ router.post('/migrate', async (req: Request, res: Response) => {
 
     const pool = getPool();
 
+    // Determine paths - look in source directory since .sql files aren't compiled
+    const isProduction = process.env.NODE_ENV === 'production';
+    const srcPath = isProduction
+      ? join(__dirname, '../../src/database')  // In production, go back to src
+      : join(__dirname, '../database');        // In dev, relative to dist
+
+    logger.info(`Looking for migrations in: ${srcPath}`);
+
     // 1. Run base schema if it exists
     try {
       const schemaSQL = readFileSync(
-        join(__dirname, '../database/schema.sql'),
+        join(srcPath, 'schema.sql'),
         'utf-8'
       );
       await pool.query(schemaSQL);
@@ -30,13 +38,16 @@ router.post('/migrate', async (req: Request, res: Response) => {
     }
 
     // 2. Run migration files in order
-    const migrationsDir = join(__dirname, '../database/migrations');
+    const migrationsDir = join(srcPath, 'migrations');
     const results: string[] = [];
 
     try {
       const migrationFiles = readdirSync(migrationsDir)
         .filter((file) => file.endsWith('.sql'))
         .sort();
+
+      logger.info(`Found ${migrationFiles.length} migration file(s)`);
+      results.push(`Found ${migrationFiles.length} migration file(s) in ${migrationsDir}`);
 
       for (const file of migrationFiles) {
         logger.info(`Running migration: ${file}...`);
