@@ -20,8 +20,15 @@ async function startServer() {
     // Run migrations
     try {
       logger.info('Running database migrations...');
+
+      // Look in source directory since .sql files aren't compiled to dist/
+      const isProduction = process.env.NODE_ENV === 'production';
+      const srcPath = isProduction
+        ? join(__dirname, '../src/database')  // In production, go from dist/ to src/
+        : join(__dirname, 'database');        // In dev, relative to dist/
+
       const schemaSQL = readFileSync(
-        join(__dirname, 'database/schema.sql'),
+        join(srcPath, 'schema.sql'),
         'utf-8'
       );
       await pool.query(schemaSQL);
