@@ -4,7 +4,17 @@
 
 -- Enable required extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "pgvector";
+
+-- pgvector extension (optional - for AI embeddings)
+-- If not available, ai_memory table will use TEXT instead of vector type
+-- To enable: Run "CREATE EXTENSION pgvector;" in your PostgreSQL database
+DO $$
+BEGIN
+  CREATE EXTENSION IF NOT EXISTS "pgvector";
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE NOTICE 'pgvector extension not available - ai_memory will use TEXT for embeddings';
+END $$;
 
 -- Drop existing tables if they exist (for clean migration)
 -- WARNING: This will delete existing data. In production, use ALTER TABLE instead.
@@ -218,7 +228,9 @@ CREATE TABLE ai_memory (
     summary TEXT,
 
     -- Vector embedding for semantic search
-    embedding vector(1536),
+    -- Uses TEXT to store JSON array if pgvector is not available
+    -- Can be converted to vector(1536) type once pgvector is enabled
+    embedding TEXT,
 
     -- Metadata
     relevance_score DECIMAL(3, 2) DEFAULT 1.0,
