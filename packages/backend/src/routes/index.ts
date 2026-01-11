@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import gameRoutes from './gameRoutes';
+import instructorRoutes from './instructorRoutes';
 
 const router = Router();
 
@@ -10,6 +11,9 @@ router.get('/health', (_req, res) => {
 
 // Game routes
 router.use('/games', gameRoutes);
+
+// Instructor routes
+router.use('/instructor', instructorRoutes);
 
 // TODO: Add additional route modules
 // import teamRoutes from './teamRoutes';

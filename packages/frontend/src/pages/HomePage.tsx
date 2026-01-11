@@ -23,7 +23,8 @@ export default function HomePage() {
       const response = await gameApi.createGame(gameData);
       toast.success(`Game "${response.game.name}" created successfully!`);
       setShowCreateModal(false);
-      navigate(`/lobby/${response.game.id}`);
+      // Redirect facilitator to instructor dashboard
+      navigate(`/instructor/${response.game.id}`);
     } catch (error: any) {
       console.error('Error creating game:', error);
       toast.error(error.response?.data?.error || 'Failed to create game. Please try again.');
