@@ -22,7 +22,7 @@ export const env = {
 
   // Claude AI
   ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || '',
-  CLAUDE_MODEL: process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20240620',
+  CLAUDE_MODEL: process.env.CLAUDE_MODEL || 'claude-3-sonnet-20240229',
 
   // Game Configuration
   GAME_DURATION_MINUTES: parseInt(process.env.GAME_DURATION_MINUTES || '75', 10),
