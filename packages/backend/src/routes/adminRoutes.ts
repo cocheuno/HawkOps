@@ -31,10 +31,15 @@ router.post('/migrate', async (_req: Request, res: Response) => {
       await pool.query(schemaSQL);
       logger.info('✓ Base schema executed successfully');
     } catch (error: any) {
-      if (error.code !== 'ENOENT') {
-        throw error;
+      if (error.code === 'ENOENT') {
+        logger.info('No base schema.sql found, skipping');
+      } else if (error.code === '42710' || error.code === '42P07') {
+        // 42710 = duplicate object (trigger, etc.)
+        // 42P07 = duplicate table
+        logger.info('Base schema already exists, skipping');
+      } else {
+        throw error; // Re-throw unexpected errors
       }
-      logger.info('No base schema.sql found, skipping');
     }
 
     // 2. Run migration files in order
