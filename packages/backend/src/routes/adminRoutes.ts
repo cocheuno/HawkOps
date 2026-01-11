@@ -8,7 +8,7 @@ const router = Router();
 
 // DANGER: This should be protected in production!
 // Only use for initial setup, then disable or protect with auth
-router.post('/migrate', async (req: Request, res: Response) => {
+router.post('/migrate', async (_req: Request, res: Response) => {
   try {
     logger.info('Starting database migrations via HTTP endpoint...');
 
