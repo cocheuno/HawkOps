@@ -4,6 +4,25 @@ import { AIGameMasterService } from '../services/aiGameMaster.service';
 import logger from '../utils/logger';
 
 /**
+ * Map incident severity to game_events severity constraint
+ * Database allows: 'info', 'warning', 'error', 'critical'
+ */
+function mapSeverityToEventSeverity(severity: string): string {
+  const severityMap: Record<string, string> = {
+    'low': 'info',
+    'medium': 'warning',
+    'high': 'error',
+    'critical': 'critical',
+    'SEV1': 'critical',
+    'SEV2': 'error',
+    'SEV3': 'warning',
+    'SEV4': 'info',
+  };
+
+  return severityMap[severity] || 'warning';
+}
+
+/**
  * Instructor Controller
  * Handles instructor-specific actions like AI incident injection
  */
@@ -94,12 +113,13 @@ export class InstructorController {
           gameId,
           'ai_incident_injected',
           'ai_action',
-          generatedIncident.severity,
+          mapSeverityToEventSeverity(generatedIncident.severity),
           JSON.stringify({
             incidentId: incident.id,
             incidentNumber,
             title: generatedIncident.title,
             priority: generatedIncident.priority,
+            severity: generatedIncident.severity,
             teachingPoint: generatedIncident.teachingPoint,
           }),
           'ai',
@@ -139,7 +159,7 @@ export class InstructorController {
           gameId,
           'ai_incident_injection_failed',
           'ai_action',
-          'high',
+          'error',
           JSON.stringify({
             error: error.message,
             stack: error.stack,
