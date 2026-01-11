@@ -206,7 +206,7 @@ Return ONLY a valid JSON object with this exact structure (no markdown, no expla
 {
   "title": "Brief incident title",
   "description": "Detailed description of what's happening. Include user impact and symptoms.",
-  "priority": "P1" | "P2" | "P3",
+  "priority": "critical" | "high" | "medium" | "low",
   "severity": "critical" | "high" | "medium" | "low",
   "affectedService": "Name of the service/component affected",
   "estimatedCostPerMinute": number (business impact in dollars),
