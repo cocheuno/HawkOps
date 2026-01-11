@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import CreateGameModal from '../components/CreateGameModal';
+import CreateGameModal from '../Components/CreateGameModal';
 import { gameApi } from '../services/api';
 
 export default function HomePage() {
