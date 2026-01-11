@@ -66,9 +66,18 @@ ALTER TABLE incidents
   ADD COLUMN IF NOT EXISTS ai_context JSONB;
 
 -- Generate incident numbers for existing incidents
+-- Uses CTE because window functions can't be used directly in UPDATE
+WITH numbered_incidents AS (
+  SELECT
+    id,
+    'INC' || LPAD(CAST(ROW_NUMBER() OVER (PARTITION BY game_id ORDER BY created_at) AS TEXT), 4, '0') as new_number
+  FROM incidents
+  WHERE incident_number IS NULL
+)
 UPDATE incidents
-SET incident_number = 'INC' || LPAD(CAST(ROW_NUMBER() OVER (PARTITION BY game_id ORDER BY created_at) AS TEXT), 4, '0')
-WHERE incident_number IS NULL;
+SET incident_number = numbered_incidents.new_number
+FROM numbered_incidents
+WHERE incidents.id = numbered_incidents.id;
 
 -- Configuration Items (CMDB) table
 CREATE TABLE configuration_items (
