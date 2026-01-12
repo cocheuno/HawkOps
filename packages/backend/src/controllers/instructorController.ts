@@ -89,7 +89,7 @@ export class InstructorController {
           generatedIncident.description,
           generatedIncident.priority,
           generatedIncident.severity,
-          'new',
+          'open',
           slaDeadline,
           generatedIncident.estimatedCostPerMinute,
           true, // ai_generated
