@@ -16,13 +16,11 @@ EXCEPTION
     RAISE NOTICE 'pgvector extension not available - ai_memory will use TEXT for embeddings';
 END $$;
 
--- Drop existing tables if they exist (for clean migration)
--- WARNING: This will delete existing data. In production, use ALTER TABLE instead.
+-- Drop new tables if they exist (for clean migration)
+-- NOTE: ai_interactions and chat_messages are updated via ALTER TABLE instead of dropped
 DROP TABLE IF EXISTS instructor_notes CASCADE;
-DROP TABLE IF EXISTS chat_messages CASCADE;
 DROP TABLE IF EXISTS change_requests CASCADE;
 DROP TABLE IF EXISTS ai_memory CASCADE;
-DROP TABLE IF EXISTS ai_interactions CASCADE;
 DROP TABLE IF EXISTS financial_transactions CASCADE;
 DROP TABLE IF EXISTS technical_debt_log CASCADE;
 DROP TABLE IF EXISTS work_items CASCADE;
@@ -81,7 +79,7 @@ FROM numbered_incidents
 WHERE incidents.id = numbered_incidents.id;
 
 -- Configuration Items (CMDB) table
-CREATE TABLE configuration_items (
+CREATE TABLE IF NOT EXISTS configuration_items (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     game_id UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
@@ -101,7 +99,7 @@ CREATE TABLE configuration_items (
 );
 
 -- CI Dependencies (for Service Map)
-CREATE TABLE ci_dependencies (
+CREATE TABLE IF NOT EXISTS ci_dependencies (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     game_id UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
     parent_ci_id UUID NOT NULL REFERENCES configuration_items(id) ON DELETE CASCADE,
@@ -114,7 +112,7 @@ CREATE TABLE ci_dependencies (
 );
 
 -- Work Items / Kanban backlog
-CREATE TABLE work_items (
+CREATE TABLE IF NOT EXISTS work_items (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     game_id UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
     team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
@@ -148,7 +146,7 @@ CREATE TABLE work_items (
 );
 
 -- Financial Transactions (CAPEX/OPEX tracking)
-CREATE TABLE financial_transactions (
+CREATE TABLE IF NOT EXISTS financial_transactions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     game_id UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
     team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
@@ -196,44 +194,39 @@ ALTER TABLE game_events
   ADD COLUMN IF NOT EXISTS actor_type VARCHAR(50),
   ADD COLUMN IF NOT EXISTS actor_id UUID;
 
--- AI Interactions Log
-CREATE TABLE ai_interactions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    game_id UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+-- AI Interactions Log - Update existing table or create if not exists
+-- Add new columns to existing ai_interactions table
+ALTER TABLE ai_interactions
+  ADD COLUMN IF NOT EXISTS agent_type VARCHAR(50),
+  ADD COLUMN IF NOT EXISTS agent_personality VARCHAR(50),
+  ADD COLUMN IF NOT EXISTS prompt_template TEXT,
+  ADD COLUMN IF NOT EXISTS prompt_variables JSONB,
+  ADD COLUMN IF NOT EXISTS full_prompt TEXT,
+  ADD COLUMN IF NOT EXISTS ai_response TEXT,
+  ADD COLUMN IF NOT EXISTS prompt_tokens INTEGER,
+  ADD COLUMN IF NOT EXISTS completion_tokens INTEGER,
+  ADD COLUMN IF NOT EXISTS total_tokens INTEGER,
+  ADD COLUMN IF NOT EXISTS context_used JSONB,
+  ADD COLUMN IF NOT EXISTS outcome_category VARCHAR(50),
+  ADD COLUMN IF NOT EXISTS outcome_notes TEXT,
+  ADD COLUMN IF NOT EXISTS latency_ms INTEGER;
 
-    -- AI Agent info
-    agent_type VARCHAR(50) NOT NULL,
-    agent_personality VARCHAR(50),
-
-    -- Interaction details
-    interaction_type VARCHAR(100) NOT NULL,
-
-    -- Prompt & Response
-    prompt_template TEXT,
-    prompt_variables JSONB,
-    full_prompt TEXT NOT NULL,
-    ai_response TEXT NOT NULL,
-
-    -- Token usage
-    prompt_tokens INTEGER,
-    completion_tokens INTEGER,
-    total_tokens INTEGER,
-
-    -- Context
-    context_used JSONB,
-
-    -- Outcome
-    outcome_category VARCHAR(50),
-    outcome_notes TEXT,
-
-    -- Performance
-    latency_ms INTEGER,
-
-    created_at TIMESTAMP DEFAULT NOW()
-);
+-- Rename old columns to match new schema
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='ai_interactions' AND column_name='tokens_used') THEN
+    ALTER TABLE ai_interactions RENAME COLUMN tokens_used TO total_tokens;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='ai_interactions' AND column_name='prompt') THEN
+    ALTER TABLE ai_interactions RENAME COLUMN prompt TO full_prompt;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='ai_interactions' AND column_name='response') THEN
+    ALTER TABLE ai_interactions RENAME COLUMN response TO ai_response;
+  END IF;
+END $$;
 
 -- AI Memory / Context Store (using pgvector)
-CREATE TABLE ai_memory (
+CREATE TABLE IF NOT EXISTS ai_memory (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     game_id UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
 
@@ -259,7 +252,7 @@ CREATE TABLE ai_memory (
 );
 
 -- Change Requests (for ITSM Change Management workflow)
-CREATE TABLE change_requests (
+CREATE TABLE IF NOT EXISTS change_requests (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     game_id UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
     change_number VARCHAR(50) NOT NULL,
@@ -295,33 +288,30 @@ CREATE TABLE change_requests (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- Chat Messages
-CREATE TABLE chat_messages (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    game_id UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+-- Chat Messages - Update existing table
+-- Add new columns to existing chat_messages table
+ALTER TABLE chat_messages
+  ADD COLUMN IF NOT EXISTS channel_type VARCHAR(50) DEFAULT 'team',
+  ADD COLUMN IF NOT EXISTS channel_id VARCHAR(100),
+  ADD COLUMN IF NOT EXISTS sender_type VARCHAR(50) DEFAULT 'player',
+  ADD COLUMN IF NOT EXISTS sender_id UUID,
+  ADD COLUMN IF NOT EXISTS sender_name VARCHAR(255),
+  ADD COLUMN IF NOT EXISTS message_text TEXT,
+  ADD COLUMN IF NOT EXISTS message_metadata JSONB,
+  ADD COLUMN IF NOT EXISTS sentiment_score DECIMAL(3, 2),
+  ADD COLUMN IF NOT EXISTS sentiment_analyzed BOOLEAN DEFAULT false;
 
-    -- Message details
-    channel_type VARCHAR(50) NOT NULL,
-    channel_id VARCHAR(100),
-
-    -- Sender
-    sender_type VARCHAR(50) NOT NULL,
-    sender_id UUID,
-    sender_name VARCHAR(255),
-
-    -- Message content
-    message_text TEXT NOT NULL,
-    message_metadata JSONB,
-
-    -- AI analysis
-    sentiment_score DECIMAL(3, 2),
-    sentiment_analyzed BOOLEAN DEFAULT false,
-
-    created_at TIMESTAMP DEFAULT NOW()
-);
+-- Migrate old message column to message_text if needed
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='chat_messages' AND column_name='message') THEN
+    UPDATE chat_messages SET message_text = message WHERE message_text IS NULL;
+    ALTER TABLE chat_messages DROP COLUMN IF EXISTS message;
+  END IF;
+END $$;
 
 -- Instructor Notes / Observations
-CREATE TABLE instructor_notes (
+CREATE TABLE IF NOT EXISTS instructor_notes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     game_id UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
 
