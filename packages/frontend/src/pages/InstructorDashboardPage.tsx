@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import axios from 'axios';
 
@@ -166,7 +166,7 @@ export default function InstructorDashboardPage() {
             <div key={team.id} className="bg-white rounded-lg shadow p-4">
               <h3 className="font-bold text-lg text-gray-800 mb-2">{team.name}</h3>
               <p className="text-sm text-gray-600 mb-3">{team.role}</p>
-              <div className="space-y-2">
+              <div className="space-y-2 mb-3">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Score:</span>
                   <span className="font-semibold text-hawk-purple">{team.score}</span>
@@ -182,6 +182,12 @@ export default function InstructorDashboardPage() {
                   </span>
                 </div>
               </div>
+              <Link
+                to={`/team/${team.id}`}
+                className="block w-full bg-hawk-purple hover:bg-purple-800 text-white text-center font-semibold py-2 px-4 rounded transition-colors"
+              >
+                View Dashboard
+              </Link>
             </div>
           ))}
         </div>
