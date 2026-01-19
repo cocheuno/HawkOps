@@ -51,6 +51,7 @@ ALTER TABLE players
 
 -- Update existing incidents table with AI and financial tracking
 ALTER TABLE incidents
+  ADD COLUMN IF NOT EXISTS description TEXT,
   ADD COLUMN IF NOT EXISTS incident_number VARCHAR(50),
   ADD COLUMN IF NOT EXISTS severity VARCHAR(50) DEFAULT 'medium',
   ADD COLUMN IF NOT EXISTS affected_ci_id UUID,
@@ -166,12 +167,13 @@ CREATE TABLE financial_transactions (
 );
 
 -- Technical Debt Ledger
-CREATE TABLE technical_debt_log (
+CREATE TABLE IF NOT EXISTS technical_debt_log (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     game_id UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
     team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
 
     -- Debt details
+    description TEXT,
     source_type VARCHAR(50) NOT NULL,
     source_id UUID,
     debt_points INTEGER NOT NULL,
@@ -183,6 +185,10 @@ CREATE TABLE technical_debt_log (
 
     created_at TIMESTAMP DEFAULT NOW()
 );
+
+-- Add description column if technical_debt_log already exists
+ALTER TABLE technical_debt_log
+  ADD COLUMN IF NOT EXISTS description TEXT;
 
 -- Update game_events table with categories
 ALTER TABLE game_events

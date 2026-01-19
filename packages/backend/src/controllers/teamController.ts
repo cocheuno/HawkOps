@@ -63,7 +63,7 @@ export class TeamController {
       const techDebtResult = await pool.query(
         `SELECT id, description, debt_points, created_at, resolved
          FROM technical_debt_log
-         WHERE game_id = $1 AND responsible_team_id = $2 AND resolved = false
+         WHERE game_id = $1 AND team_id = $2 AND resolved = false
          ORDER BY created_at DESC`,
         [team.game_id, teamId]
       );
