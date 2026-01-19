@@ -4,6 +4,7 @@ import HomePage from './pages/HomePage';
 import GameLobbyPage from './pages/GameLobbyPage';
 import GameplayPage from './pages/GameplayPage';
 import InstructorDashboardPage from './pages/InstructorDashboardPage';
+import OperationsDashboardPage from './pages/OperationsDashboardPage';
 import './App.css';
 
 function App() {
@@ -15,6 +16,7 @@ function App() {
         <Route path="/lobby/:gameId" element={<GameLobbyPage />} />
         <Route path="/game/:gameId" element={<GameplayPage />} />
         <Route path="/instructor/:gameId" element={<InstructorDashboardPage />} />
+        <Route path="/team/:teamId" element={<OperationsDashboardPage />} />
       </Routes>
     </BrowserRouter>
   );

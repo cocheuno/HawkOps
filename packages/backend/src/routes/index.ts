@@ -2,6 +2,7 @@ import { Router } from 'express';
 import gameRoutes from './gameRoutes';
 import instructorRoutes from './instructorRoutes';
 import adminRoutes from './adminRoutes';
+import teamRoutes from './teamRoutes';
 
 const router = Router();
 
@@ -16,16 +17,16 @@ router.use('/games', gameRoutes);
 // Instructor routes
 router.use('/instructor', instructorRoutes);
 
+// Team routes
+router.use('/teams', teamRoutes);
+
 // Admin routes (for database setup, etc.)
 // WARNING: Secure these endpoints in production!
 router.use('/admin', adminRoutes);
 
 // TODO: Add additional route modules
-// import teamRoutes from './teamRoutes';
 // import userRoutes from './userRoutes';
 // import aiRoutes from './aiRoutes';
-
-// router.use('/teams', teamRoutes);
 // router.use('/users', userRoutes);
 // router.use('/ai', aiRoutes);
 

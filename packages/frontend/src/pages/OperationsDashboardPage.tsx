@@ -1,0 +1,399 @@
+import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
+import axios from 'axios';
+
+const API_URL = import.meta.env.PROD ? '/api' : 'http://localhost:3000/api';
+
+interface Team {
+  id: string;
+  name: string;
+  role: string;
+  score: number;
+  budgetRemaining: number;
+  moraleLevel: number;
+}
+
+interface Game {
+  id: string;
+  name: string;
+  status: string;
+  currentRound: number;
+  maxRounds: number;
+  difficultyLevel: number;
+}
+
+interface Incident {
+  id: string;
+  incidentNumber: string;
+  title: string;
+  description: string;
+  priority: string;
+  severity: string;
+  status: string;
+  createdAt: string;
+  slaDeadline: string;
+  estimatedCostPerMinute: number;
+  totalCost: number;
+  aiGenerated: boolean;
+  aiContext?: any;
+}
+
+interface DashboardData {
+  team: Team;
+  game: Game;
+  incidents: Incident[];
+  activeIncidentCount: number;
+  technicalDebt: any[];
+}
+
+export default function OperationsDashboardPage() {
+  const { teamId } = useParams();
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
+
+  const fetchDashboard = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/teams/${teamId}/dashboard`);
+      setDashboardData(response.data);
+      setLoading(false);
+    } catch (error: any) {
+      console.error('Error fetching dashboard:', error);
+      toast.error('Failed to load dashboard');
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboard();
+    // Poll for updates every 5 seconds
+    const interval = setInterval(fetchDashboard, 5000);
+    return () => clearInterval(interval);
+  }, [teamId]);
+
+  const handleStatusChange = async (incidentId: string, newStatus: string) => {
+    if (!teamId) return;
+
+    setUpdating(true);
+    try {
+      await axios.patch(`${API_URL}/teams/${teamId}/incidents/${incidentId}/status`, {
+        status: newStatus,
+      });
+
+      toast.success(`Incident status updated to ${newStatus}`);
+      await fetchDashboard();
+
+      // Close modal if incident was resolved/closed
+      if (newStatus === 'resolved' || newStatus === 'closed') {
+        setSelectedIncident(null);
+      }
+    } catch (error: any) {
+      console.error('Error updating incident:', error);
+      toast.error(error.response?.data?.error || 'Failed to update incident');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const calculateTimeRemaining = (slaDeadline: string) => {
+    const now = new Date();
+    const deadline = new Date(slaDeadline);
+    const diffMs = deadline.getTime() - now.getTime();
+
+    if (diffMs < 0) return 'SLA BREACHED';
+
+    const diffMins = Math.floor(diffMs / 60000);
+    const hours = Math.floor(diffMins / 60);
+    const mins = diffMins % 60;
+
+    if (hours > 0) return `${hours}h ${mins}m`;
+    return `${mins}m`;
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'critical': return 'bg-red-100 text-red-800 border-red-300';
+      case 'high': return 'bg-orange-100 text-orange-800 border-orange-300';
+      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+      case 'low': return 'bg-blue-100 text-blue-800 border-blue-300';
+      default: return 'bg-gray-100 text-gray-800 border-gray-300';
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'open': return 'bg-red-100 text-red-700';
+      case 'in_progress': return 'bg-yellow-100 text-yellow-700';
+      case 'resolved': return 'bg-green-100 text-green-700';
+      case 'closed': return 'bg-gray-100 text-gray-700';
+      default: return 'bg-gray-100 text-gray-700';
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-xl text-gray-600">Loading dashboard...</div>
+      </div>
+    );
+  }
+
+  if (!dashboardData) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-xl text-red-600">Failed to load dashboard</div>
+      </div>
+    );
+  }
+
+  const { team, game, incidents, activeIncidentCount, technicalDebt } = dashboardData;
+
+  return (
+    <div className="min-h-screen bg-gray-100 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Team Header */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-800 mb-2">{team.name}</h1>
+              <p className="text-gray-600 mb-4">{team.role}</p>
+              <div className="flex gap-6">
+                <div>
+                  <span className="text-sm text-gray-600">Score</span>
+                  <p className="text-2xl font-bold text-hawk-purple">{team.score}</p>
+                </div>
+                <div>
+                  <span className="text-sm text-gray-600">Budget</span>
+                  <p className="text-2xl font-bold text-green-600">${team.budgetRemaining.toLocaleString()}</p>
+                </div>
+                <div>
+                  <span className="text-sm text-gray-600">Morale</span>
+                  <p className={`text-2xl font-bold ${
+                    team.moraleLevel >= 70 ? 'text-green-600' :
+                    team.moraleLevel >= 40 ? 'text-yellow-600' :
+                    'text-red-600'
+                  }`}>{team.moraleLevel}%</p>
+                </div>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-sm text-gray-600">{game.name}</p>
+              <p className="text-sm text-gray-500">Round {game.currentRound}/{game.maxRounds}</p>
+              <p className="text-sm text-gray-500 mt-2">Difficulty: {game.difficultyLevel}/10</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Stats Row */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="bg-white rounded-lg shadow p-4">
+            <h3 className="text-sm font-semibold text-gray-600 mb-1">Active Incidents</h3>
+            <p className="text-3xl font-bold text-hawk-purple">{activeIncidentCount}</p>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <h3 className="text-sm font-semibold text-gray-600 mb-1">Total Incidents</h3>
+            <p className="text-3xl font-bold text-blue-600">{incidents.length}</p>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <h3 className="text-sm font-semibold text-gray-600 mb-1">Technical Debt</h3>
+            <p className="text-3xl font-bold text-orange-600">{technicalDebt.length}</p>
+          </div>
+        </div>
+
+        {/* Incident Queue */}
+        <div className="bg-white rounded-lg shadow">
+          <div className="p-4 border-b border-gray-200">
+            <h2 className="text-xl font-bold text-gray-800">Incident Queue</h2>
+          </div>
+          <div className="p-4">
+            {incidents.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-500">No incidents assigned to your team</p>
+                <p className="text-sm text-gray-400 mt-2">When incidents are assigned, they'll appear here</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {incidents.map((incident) => {
+                  const timeRemaining = calculateTimeRemaining(incident.slaDeadline);
+                  const isSlaBreached = timeRemaining === 'SLA BREACHED';
+
+                  return (
+                    <div
+                      key={incident.id}
+                      onClick={() => setSelectedIncident(incident)}
+                      className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-sm font-semibold text-gray-700">
+                            {incident.incidentNumber}
+                          </span>
+                          {incident.aiGenerated && (
+                            <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">
+                              AI Generated
+                            </span>
+                          )}
+                          <span className={`text-xs px-2 py-1 rounded font-semibold ${getStatusColor(incident.status)}`}>
+                            {incident.status.replace('_', ' ').toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="flex gap-2">
+                          <span className={`text-xs px-2 py-1 rounded border font-semibold ${getPriorityColor(incident.priority)}`}>
+                            {incident.priority.toUpperCase()}
+                          </span>
+                          <span className={`text-xs px-2 py-1 rounded font-semibold ${
+                            isSlaBreached ? 'bg-red-600 text-white' : 'bg-green-100 text-green-700'
+                          }`}>
+                            {timeRemaining}
+                          </span>
+                        </div>
+                      </div>
+                      <h4 className="font-semibold text-gray-800 mb-1">{incident.title}</h4>
+                      <p className="text-sm text-gray-600 line-clamp-2">{incident.description}</p>
+                      <div className="flex justify-between items-center mt-2 text-xs text-gray-500">
+                        <span>Cost: ${incident.estimatedCostPerMinute}/min</span>
+                        <span>Created: {new Date(incident.createdAt).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Incident Detail Modal */}
+      {selectedIncident && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-hawk-purple text-white px-6 py-4 flex items-center justify-between rounded-t-lg">
+              <div>
+                <h2 className="text-2xl font-bold">{selectedIncident.incidentNumber}</h2>
+                <p className="text-sm opacity-90">{selectedIncident.title}</p>
+              </div>
+              <button
+                onClick={() => setSelectedIncident(null)}
+                className="text-white hover:text-gray-200 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Status Badges */}
+              <div className="flex gap-2 flex-wrap">
+                <span className={`px-3 py-1 rounded border font-semibold ${getPriorityColor(selectedIncident.priority)}`}>
+                  Priority: {selectedIncident.priority.toUpperCase()}
+                </span>
+                <span className={`px-3 py-1 rounded font-semibold ${getStatusColor(selectedIncident.status)}`}>
+                  Status: {selectedIncident.status.replace('_', ' ').toUpperCase()}
+                </span>
+                <span className="px-3 py-1 rounded bg-gray-100 text-gray-700 font-semibold">
+                  Severity: {selectedIncident.severity}
+                </span>
+              </div>
+
+              {/* Description */}
+              <div>
+                <h3 className="font-semibold text-gray-800 mb-2">Description</h3>
+                <p className="text-gray-700 whitespace-pre-wrap">{selectedIncident.description}</p>
+              </div>
+
+              {/* SLA Info */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-gray-800 mb-2">SLA Information</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <span className="text-sm text-gray-600">Time Remaining</span>
+                    <p className="text-lg font-bold text-hawk-purple">
+                      {calculateTimeRemaining(selectedIncident.slaDeadline)}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-sm text-gray-600">Deadline</span>
+                    <p className="text-lg font-bold text-gray-800">
+                      {new Date(selectedIncident.slaDeadline).toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-sm text-gray-600">Est. Cost/Min</span>
+                    <p className="text-lg font-bold text-orange-600">
+                      ${selectedIncident.estimatedCostPerMinute}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-sm text-gray-600">Total Cost</span>
+                    <p className="text-lg font-bold text-red-600">
+                      ${selectedIncident.totalCost.toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* AI Context (if available) */}
+              {selectedIncident.aiGenerated && selectedIncident.aiContext && (
+                <div className="bg-purple-50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-purple-900 mb-2">AI Insights</h3>
+                  {selectedIncident.aiContext.teachingPoint && (
+                    <div className="mb-2">
+                      <span className="text-sm font-semibold text-purple-700">Teaching Point:</span>
+                      <p className="text-sm text-purple-900">{selectedIncident.aiContext.teachingPoint}</p>
+                    </div>
+                  )}
+                  {selectedIncident.aiContext.affectedService && (
+                    <div>
+                      <span className="text-sm font-semibold text-purple-700">Affected Service:</span>
+                      <p className="text-sm text-purple-900">{selectedIncident.aiContext.affectedService}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-4 border-t border-gray-200">
+                {selectedIncident.status === 'open' && (
+                  <button
+                    onClick={() => handleStatusChange(selectedIncident.id, 'in_progress')}
+                    disabled={updating}
+                    className="flex-1 bg-yellow-500 hover:bg-yellow-600 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+                  >
+                    {updating ? 'Updating...' : 'Start Working'}
+                  </button>
+                )}
+                {selectedIncident.status === 'in_progress' && (
+                  <button
+                    onClick={() => handleStatusChange(selectedIncident.id, 'resolved')}
+                    disabled={updating}
+                    className="flex-1 bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+                  >
+                    {updating ? 'Updating...' : 'Mark as Resolved'}
+                  </button>
+                )}
+                {selectedIncident.status === 'resolved' && (
+                  <button
+                    onClick={() => handleStatusChange(selectedIncident.id, 'closed')}
+                    disabled={updating}
+                    className="flex-1 bg-gray-500 hover:bg-gray-600 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+                  >
+                    {updating ? 'Updating...' : 'Close Incident'}
+                  </button>
+                )}
+                <button
+                  onClick={() => setSelectedIncident(null)}
+                  className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
