@@ -268,75 +268,114 @@ export default function OperationsDashboardPage() {
       {/* Incident Detail Modal */}
       {selectedIncident && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
           onClick={() => setSelectedIncident(null)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+            zIndex: 9999
+          }}
         >
           <div
-            className="bg-white rounded-lg shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
-            style={{ backgroundColor: '#ffffff', position: 'relative', zIndex: 100, color: '#1f2937' }}
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '8px',
+              maxWidth: '800px',
+              width: '100%',
+              maxHeight: '90vh',
+              overflow: 'auto',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+              color: '#1f2937'
+            }}
           >
-            <div className="bg-hawk-purple text-white px-6 py-4 flex items-center justify-between rounded-t-lg" style={{ backgroundColor: '#4B2E83', color: '#ffffff' }}>
+            {/* Header */}
+            <div style={{
+              backgroundColor: '#4B2E83',
+              color: '#ffffff',
+              padding: '24px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              borderTopLeftRadius: '8px',
+              borderTopRightRadius: '8px'
+            }}>
               <div>
-                <h2 className="text-2xl font-bold" style={{ color: '#ffffff' }}>{selectedIncident.incidentNumber}</h2>
-                <p className="text-sm opacity-90" style={{ color: '#ffffff' }}>{selectedIncident.title}</p>
+                <h2 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0, color: '#ffffff' }}>
+                  {selectedIncident.incidentNumber}
+                </h2>
+                <p style={{ fontSize: '14px', margin: '4px 0 0 0', color: '#ffffff' }}>
+                  {selectedIncident.title}
+                </p>
               </div>
               <button
                 onClick={() => setSelectedIncident(null)}
-                className="text-white hover:text-gray-200 transition-colors"
-                style={{ color: '#ffffff' }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#ffffff',
+                  cursor: 'pointer',
+                  fontSize: '24px',
+                  padding: '8px'
+                }}
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                ✕
               </button>
             </div>
 
-            <div className="p-6 space-y-6" style={{ color: '#1f2937' }}>
+            {/* Content */}
+            <div style={{ padding: '24px', color: '#1f2937' }}>
               {/* Status Badges */}
-              <div className="flex gap-2 flex-wrap">
-                <span className={`px-3 py-1 rounded border font-semibold ${getPriorityColor(selectedIncident.priority)}`}>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
+                <span style={{ padding: '8px 12px', borderRadius: '4px', fontWeight: '600', backgroundColor: '#fee2e2', color: '#991b1b' }}>
                   Priority: {selectedIncident.priority.toUpperCase()}
                 </span>
-                <span className={`px-3 py-1 rounded font-semibold ${getStatusColor(selectedIncident.status)}`}>
+                <span style={{ padding: '8px 12px', borderRadius: '4px', fontWeight: '600', backgroundColor: '#e0e7ff', color: '#3730a3' }}>
                   Status: {selectedIncident.status.replace('_', ' ').toUpperCase()}
                 </span>
-                <span className="px-3 py-1 rounded bg-gray-100 text-gray-700 font-semibold">
+                <span style={{ padding: '8px 12px', borderRadius: '4px', fontWeight: '600', backgroundColor: '#f3f4f6', color: '#374151' }}>
                   Severity: {selectedIncident.severity}
                 </span>
               </div>
 
               {/* Description */}
-              <div>
-                <h3 className="font-semibold text-gray-800 mb-2">Description</h3>
-                <p className="text-gray-700 whitespace-pre-wrap">{selectedIncident.description || 'No description available'}</p>
+              <div style={{ marginBottom: '24px' }}>
+                <h3 style={{ fontWeight: '600', color: '#1f2937', marginBottom: '8px' }}>Description</h3>
+                <p style={{ color: '#374151', whiteSpace: 'pre-wrap' }}>{selectedIncident.description || 'No description available'}</p>
               </div>
 
               {/* SLA Info */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="font-semibold text-gray-800 mb-2">SLA Information</h3>
-                <div className="grid grid-cols-2 gap-4">
+              <div style={{ backgroundColor: '#f9fafb', padding: '16px', borderRadius: '8px', marginBottom: '24px' }}>
+                <h3 style={{ fontWeight: '600', color: '#1f2937', marginBottom: '12px' }}>SLA Information</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                   <div>
-                    <span className="text-sm text-gray-600">Time Remaining</span>
-                    <p className="text-lg font-bold text-hawk-purple">
+                    <span style={{ fontSize: '14px', color: '#4b5563', display: 'block' }}>Time Remaining</span>
+                    <p style={{ fontSize: '18px', fontWeight: 'bold', color: '#4B2E83', margin: '4px 0 0 0' }}>
                       {calculateTimeRemaining(selectedIncident.slaDeadline)}
                     </p>
                   </div>
                   <div>
-                    <span className="text-sm text-gray-600">Deadline</span>
-                    <p className="text-lg font-bold text-gray-800">
+                    <span style={{ fontSize: '14px', color: '#4b5563', display: 'block' }}>Deadline</span>
+                    <p style={{ fontSize: '18px', fontWeight: 'bold', color: '#1f2937', margin: '4px 0 0 0' }}>
                       {new Date(selectedIncident.slaDeadline).toLocaleString()}
                     </p>
                   </div>
                   <div>
-                    <span className="text-sm text-gray-600">Est. Cost/Min</span>
-                    <p className="text-lg font-bold text-orange-600">
+                    <span style={{ fontSize: '14px', color: '#4b5563', display: 'block' }}>Est. Cost/Min</span>
+                    <p style={{ fontSize: '18px', fontWeight: 'bold', color: '#ea580c', margin: '4px 0 0 0' }}>
                       ${selectedIncident.estimatedCostPerMinute}
                     </p>
                   </div>
                   <div>
-                    <span className="text-sm text-gray-600">Total Cost</span>
-                    <p className="text-lg font-bold text-red-600">
+                    <span style={{ fontSize: '14px', color: '#4b5563', display: 'block' }}>Total Cost</span>
+                    <p style={{ fontSize: '18px', fontWeight: 'bold', color: '#dc2626', margin: '4px 0 0 0' }}>
                       ${selectedIncident.totalCost.toFixed(2)}
                     </p>
                   </div>
@@ -345,30 +384,39 @@ export default function OperationsDashboardPage() {
 
               {/* AI Context (if available) */}
               {selectedIncident.aiGenerated && selectedIncident.aiContext && (
-                <div className="bg-purple-50 p-4 rounded-lg">
-                  <h3 className="font-semibold text-purple-900 mb-2">AI Insights</h3>
+                <div style={{ backgroundColor: '#faf5ff', padding: '16px', borderRadius: '8px', marginBottom: '24px' }}>
+                  <h3 style={{ fontWeight: '600', color: '#581c87', marginBottom: '8px' }}>AI Insights</h3>
                   {selectedIncident.aiContext.teachingPoint && (
-                    <div className="mb-2">
-                      <span className="text-sm font-semibold text-purple-700">Teaching Point:</span>
-                      <p className="text-sm text-purple-900">{selectedIncident.aiContext.teachingPoint}</p>
+                    <div style={{ marginBottom: '8px' }}>
+                      <span style={{ fontSize: '14px', fontWeight: '600', color: '#7e22ce' }}>Teaching Point:</span>
+                      <p style={{ fontSize: '14px', color: '#581c87', margin: '4px 0 0 0' }}>{selectedIncident.aiContext.teachingPoint}</p>
                     </div>
                   )}
                   {selectedIncident.aiContext.affectedService && (
                     <div>
-                      <span className="text-sm font-semibold text-purple-700">Affected Service:</span>
-                      <p className="text-sm text-purple-900">{selectedIncident.aiContext.affectedService}</p>
+                      <span style={{ fontSize: '14px', fontWeight: '600', color: '#7e22ce' }}>Affected Service:</span>
+                      <p style={{ fontSize: '14px', color: '#581c87', margin: '4px 0 0 0' }}>{selectedIncident.aiContext.affectedService}</p>
                     </div>
                   )}
                 </div>
               )}
 
               {/* Action Buttons */}
-              <div className="flex gap-3 pt-4 border-t border-gray-200">
+              <div style={{ display: 'flex', gap: '12px', paddingTop: '16px', borderTop: '1px solid #e5e7eb' }}>
                 {selectedIncident.status === 'open' && (
                   <button
                     onClick={() => handleStatusChange(selectedIncident.id, 'in_progress')}
                     disabled={updating}
-                    className="flex-1 bg-yellow-500 hover:bg-yellow-600 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+                    style={{
+                      flex: 1,
+                      backgroundColor: updating ? '#9ca3af' : '#eab308',
+                      color: '#ffffff',
+                      fontWeight: '600',
+                      padding: '12px 24px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      cursor: updating ? 'not-allowed' : 'pointer'
+                    }}
                   >
                     {updating ? 'Updating...' : 'Start Working'}
                   </button>
@@ -377,7 +425,16 @@ export default function OperationsDashboardPage() {
                   <button
                     onClick={() => handleStatusChange(selectedIncident.id, 'resolved')}
                     disabled={updating}
-                    className="flex-1 bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+                    style={{
+                      flex: 1,
+                      backgroundColor: updating ? '#9ca3af' : '#22c55e',
+                      color: '#ffffff',
+                      fontWeight: '600',
+                      padding: '12px 24px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      cursor: updating ? 'not-allowed' : 'pointer'
+                    }}
                   >
                     {updating ? 'Updating...' : 'Mark as Resolved'}
                   </button>
@@ -386,14 +443,30 @@ export default function OperationsDashboardPage() {
                   <button
                     onClick={() => handleStatusChange(selectedIncident.id, 'closed')}
                     disabled={updating}
-                    className="flex-1 bg-gray-500 hover:bg-gray-600 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+                    style={{
+                      flex: 1,
+                      backgroundColor: updating ? '#9ca3af' : '#6b7280',
+                      color: '#ffffff',
+                      fontWeight: '600',
+                      padding: '12px 24px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      cursor: updating ? 'not-allowed' : 'pointer'
+                    }}
                   >
                     {updating ? 'Updating...' : 'Close Incident'}
                   </button>
                 )}
                 <button
                   onClick={() => setSelectedIncident(null)}
-                  className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  style={{
+                    padding: '12px 24px',
+                    border: '1px solid #d1d5db',
+                    backgroundColor: '#ffffff',
+                    color: '#374151',
+                    borderRadius: '8px',
+                    cursor: 'pointer'
+                  }}
                 >
                   Close
                 </button>
