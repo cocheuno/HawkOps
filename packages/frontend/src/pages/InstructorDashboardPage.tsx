@@ -139,6 +139,15 @@ export default function InstructorDashboardPage() {
             </div>
             <div className="flex gap-3">
               <Link
+                to={`/instructor/game/${gameState.game.id}/ai-generate`}
+                className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                AI Generate Scenario
+              </Link>
+              <Link
                 to={`/instructor/game/${gameState.game.id}/documents`}
                 className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center gap-2"
               >
