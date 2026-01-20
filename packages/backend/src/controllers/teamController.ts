@@ -142,7 +142,7 @@ export class TeamController {
       const incidentResult = await pool.query(
         `SELECT game_id, assigned_to_team_id, status as current_status
          FROM incidents
-         WHERE id = $1`,
+         WHERE id = $1::uuid`,
         [incidentId]
       );
 
@@ -167,7 +167,7 @@ export class TeamController {
         `UPDATE incidents
          SET status = $1, updated_at = NOW(),
              resolved_at = CASE WHEN $1 IN ('resolved', 'closed') THEN NOW() ELSE resolved_at END
-         WHERE id = $2
+         WHERE id = $2::uuid
          RETURNING *`,
         [status, incidentId]
       );
