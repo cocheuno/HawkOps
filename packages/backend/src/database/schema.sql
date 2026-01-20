@@ -94,11 +94,17 @@ CREATE TABLE IF NOT EXISTS game_events (
 CREATE TABLE IF NOT EXISTS chat_messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   game_id UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
-  team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-  player_id UUID NOT NULL REFERENCES players(id) ON DELETE CASCADE,
-  message TEXT NOT NULL,
+  team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
+  player_id UUID REFERENCES players(id) ON DELETE CASCADE,
+  message TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Add missing columns if chat_messages already exists
+ALTER TABLE chat_messages
+  ADD COLUMN IF NOT EXISTS team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
+  ADD COLUMN IF NOT EXISTS player_id UUID REFERENCES players(id) ON DELETE CASCADE,
+  ADD COLUMN IF NOT EXISTS message TEXT;
 
 -- Game metrics (for scoring and analytics)
 CREATE TABLE IF NOT EXISTS game_metrics (

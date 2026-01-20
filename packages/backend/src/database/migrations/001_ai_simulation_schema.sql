@@ -289,8 +289,10 @@ CREATE TABLE IF NOT EXISTS change_requests (
 );
 
 -- Chat Messages - Update existing table
--- Add new columns to existing chat_messages table
+-- Add new columns to existing chat_messages table (including old schema columns if missing)
 ALTER TABLE chat_messages
+  ADD COLUMN IF NOT EXISTS team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
+  ADD COLUMN IF NOT EXISTS player_id UUID REFERENCES players(id) ON DELETE CASCADE,
   ADD COLUMN IF NOT EXISTS channel_type VARCHAR(50) DEFAULT 'team',
   ADD COLUMN IF NOT EXISTS channel_id VARCHAR(100),
   ADD COLUMN IF NOT EXISTS sender_type VARCHAR(50) DEFAULT 'player',
