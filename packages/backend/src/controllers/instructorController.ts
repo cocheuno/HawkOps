@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { getPool } from '../config/database';
 import { AIGameMasterService } from '../services/aiGameMaster.service';
+import { SLAService } from '../services/sla.service';
 import logger from '../utils/logger';
 
 /**
@@ -303,6 +304,61 @@ export class InstructorController {
     } catch (error) {
       logger.error('Error fetching game state:', error);
       return res.status(500).json({ error: 'Failed to fetch game state' });
+    }
+  }
+
+  /**
+   * Check and process SLA breaches
+   * POST /api/instructor/games/:gameId/check-sla
+   */
+  async checkSLABreaches(req: Request, res: Response) {
+    const { gameId } = req.params;
+    const pool = getPool();
+    const slaService = new SLAService(pool);
+
+    try {
+      const result = await slaService.checkAndProcessBreaches(gameId);
+
+      return res.json({
+        success: true,
+        message: `Processed ${result.breachedCount} SLA breaches, ${result.escalatedCount} escalations`,
+        ...result,
+      });
+    } catch (error: any) {
+      logger.error('Error checking SLA breaches:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to check SLA breaches',
+        message: error.message,
+      });
+    }
+  }
+
+  /**
+   * Get SLA status summary for a game
+   * GET /api/instructor/games/:gameId/sla-status
+   */
+  async getSLAStatus(req: Request, res: Response) {
+    const { gameId } = req.params;
+    const pool = getPool();
+    const slaService = new SLAService(pool);
+
+    try {
+      const status = await slaService.getSLAStatus(gameId);
+      const atRiskIncidents = await slaService.getAtRiskIncidents(gameId);
+
+      return res.json({
+        success: true,
+        status,
+        atRiskIncidents,
+      });
+    } catch (error: any) {
+      logger.error('Error getting SLA status:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to get SLA status',
+        message: error.message,
+      });
     }
   }
 }

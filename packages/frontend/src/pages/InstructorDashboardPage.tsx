@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import axios from 'axios';
 import Navigation from '../components/Navigation';
+import ServiceHealthDashboard from '../components/ServiceHealthDashboard';
 
 const API_URL = import.meta.env.PROD ? '/api' : 'http://localhost:3000/api';
 
@@ -54,21 +55,105 @@ interface GameState {
   recentAIInteractions: AIInteraction[];
 }
 
+interface Service {
+  id: string;
+  name: string;
+  type: string;
+  status: 'operational' | 'degraded' | 'down';
+  criticality: number;
+  description?: string;
+  activeIncidents: number;
+}
+
+interface ServiceHealthData {
+  total: number;
+  operational: number;
+  degraded: number;
+  down: number;
+  healthScore: number;
+  services: Service[];
+}
+
+interface SLAStatus {
+  total: number;
+  withinSLA: number;
+  breached: number;
+  atRisk: number;
+}
+
 export default function InstructorDashboardPage() {
   const { gameId } = useParams();
   const [gameState, setGameState] = useState<GameState | null>(null);
+  const [serviceHealth, setServiceHealth] = useState<ServiceHealthData | null>(null);
+  const [slaStatus, setSlaStatus] = useState<SLAStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [injecting, setInjecting] = useState(false);
+  const [showServiceHealth, setShowServiceHealth] = useState(false);
+  const [initializingServices, setInitializingServices] = useState(false);
 
   const fetchGameState = async () => {
     try {
       const response = await axios.get(`${API_URL}/instructor/games/${gameId}/state`);
       setGameState(response.data);
       setLoading(false);
+
+      // Fetch service health and SLA status
+      fetchServiceHealth();
+      fetchSLAStatus();
     } catch (error: any) {
       console.error('Error fetching game state:', error);
       toast.error('Failed to fetch game state');
       setLoading(false);
+    }
+  };
+
+  const fetchServiceHealth = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/games/${gameId}/service-health`);
+      setServiceHealth(response.data);
+    } catch (error: any) {
+      console.error('Error fetching service health:', error);
+    }
+  };
+
+  const fetchSLAStatus = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/instructor/games/${gameId}/sla-status`);
+      setSlaStatus(response.data.status);
+    } catch (error: any) {
+      console.error('Error fetching SLA status:', error);
+    }
+  };
+
+  const handleInitializeServices = async () => {
+    if (!gameId || !gameState) return;
+    setInitializingServices(true);
+    try {
+      await axios.post(`${API_URL}/games/${gameId}/initialize-services`, {
+        scenarioType: gameState.game.scenarioType
+      });
+      toast.success('Services initialized successfully');
+      fetchServiceHealth();
+    } catch (error: any) {
+      console.error('Error initializing services:', error);
+      toast.error('Failed to initialize services');
+    } finally {
+      setInitializingServices(false);
+    }
+  };
+
+  const handleCheckSLABreaches = async () => {
+    try {
+      const response = await axios.post(`${API_URL}/instructor/games/${gameId}/check-sla`);
+      if (response.data.breachedCount > 0) {
+        toast.error(`${response.data.breachedCount} SLA breach(es) detected and processed`);
+      } else {
+        toast.success('No SLA breaches detected');
+      }
+      fetchGameState();
+    } catch (error: any) {
+      console.error('Error checking SLA breaches:', error);
+      toast.error('Failed to check SLA breaches');
     }
   };
 
@@ -215,7 +300,7 @@ export default function InstructorDashboardPage() {
         </div>
 
         {/* Metrics Row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
           <div className="bg-white rounded-lg shadow p-4">
             <h3 className="text-sm font-semibold text-gray-600 mb-1">Active Incidents</h3>
             <p className="text-3xl font-bold text-hawk-purple">{gameState.activeIncidents.length}</p>
@@ -224,11 +309,74 @@ export default function InstructorDashboardPage() {
             <h3 className="text-sm font-semibold text-gray-600 mb-1">Technical Debt</h3>
             <p className="text-3xl font-bold text-orange-600">{gameState.technicalDebt} pts</p>
           </div>
-          <div className="bg-white rounded-lg shadow p-4">
-            <h3 className="text-sm font-semibold text-gray-600 mb-1">AI Interactions</h3>
-            <p className="text-3xl font-bold text-blue-600">{gameState.recentAIInteractions.length}</p>
-          </div>
+          {slaStatus && (
+            <div className="bg-white rounded-lg shadow p-4">
+              <h3 className="text-sm font-semibold text-gray-600 mb-1">SLA Status</h3>
+              <div className="flex items-center gap-2">
+                {slaStatus.breached > 0 ? (
+                  <p className="text-2xl font-bold text-red-600">{slaStatus.breached} breached</p>
+                ) : slaStatus.atRisk > 0 ? (
+                  <p className="text-2xl font-bold text-yellow-600">{slaStatus.atRisk} at risk</p>
+                ) : (
+                  <p className="text-2xl font-bold text-green-600">All OK</p>
+                )}
+              </div>
+              <button
+                onClick={handleCheckSLABreaches}
+                className="text-xs text-hawk-purple hover:underline mt-1"
+              >
+                Check Now
+              </button>
+            </div>
+          )}
+          {serviceHealth && (
+            <div
+              className="bg-white rounded-lg shadow p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+              onClick={() => setShowServiceHealth(!showServiceHealth)}
+            >
+              <h3 className="text-sm font-semibold text-gray-600 mb-1">System Health</h3>
+              <div className="flex items-center gap-2">
+                <p className={`text-3xl font-bold ${
+                  serviceHealth.healthScore >= 90 ? 'text-green-600' :
+                  serviceHealth.healthScore >= 70 ? 'text-yellow-600' :
+                  'text-red-600'
+                }`}>{serviceHealth.healthScore}%</p>
+              </div>
+              <div className="flex gap-1 text-xs mt-1">
+                <span className="text-green-600">{serviceHealth.operational}</span>
+                <span className="text-yellow-600">{serviceHealth.degraded}</span>
+                <span className="text-red-600">{serviceHealth.down}</span>
+              </div>
+            </div>
+          )}
+          {!serviceHealth || serviceHealth.total === 0 ? (
+            <div className="bg-white rounded-lg shadow p-4">
+              <h3 className="text-sm font-semibold text-gray-600 mb-1">Services</h3>
+              <button
+                onClick={handleInitializeServices}
+                disabled={initializingServices}
+                className="text-sm bg-hawk-purple hover:bg-purple-800 disabled:bg-gray-400 text-white px-3 py-2 rounded transition-colors"
+              >
+                {initializingServices ? 'Initializing...' : 'Initialize Services'}
+              </button>
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg shadow p-4">
+              <h3 className="text-sm font-semibold text-gray-600 mb-1">AI Interactions</h3>
+              <p className="text-3xl font-bold text-blue-600">{gameState.recentAIInteractions.length}</p>
+            </div>
+          )}
         </div>
+
+        {/* Service Health Dashboard (collapsible) */}
+        {showServiceHealth && serviceHealth && serviceHealth.services.length > 0 && (
+          <div className="mb-6">
+            <ServiceHealthDashboard
+              services={serviceHealth.services}
+              compact={false}
+            />
+          </div>
+        )}
 
         {/* Active Incidents */}
         <div className="bg-white rounded-lg shadow mb-6">

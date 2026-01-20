@@ -3,6 +3,8 @@ import { useParams, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import axios from 'axios';
 import Navigation from '../components/Navigation';
+import SLATimer from '../components/SLATimer';
+import ServiceHealthDashboard from '../components/ServiceHealthDashboard';
 
 const API_URL = import.meta.env.PROD ? '/api' : 'http://localhost:3000/api';
 
@@ -48,22 +50,58 @@ interface DashboardData {
   technicalDebt: any[];
 }
 
+interface Service {
+  id: string;
+  name: string;
+  type: string;
+  status: 'operational' | 'degraded' | 'down';
+  criticality: number;
+  description?: string;
+  activeIncidents: number;
+}
+
+interface ServiceHealthData {
+  total: number;
+  operational: number;
+  degraded: number;
+  down: number;
+  healthScore: number;
+  services: Service[];
+}
+
 export default function OperationsDashboardPage() {
   const { teamId } = useParams();
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [serviceHealth, setServiceHealth] = useState<ServiceHealthData | null>(null);
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [showServiceHealth, setShowServiceHealth] = useState(false);
 
   const fetchDashboard = async () => {
     try {
       const response = await axios.get(`${API_URL}/teams/${teamId}/dashboard`);
       setDashboardData(response.data);
       setLoading(false);
+
+      // Fetch service health if we have the game ID
+      if (response.data.game?.id) {
+        fetchServiceHealth(response.data.game.id);
+      }
     } catch (error: any) {
       console.error('Error fetching dashboard:', error);
       toast.error('Failed to load dashboard');
       setLoading(false);
+    }
+  };
+
+  const fetchServiceHealth = async (gameId: string) => {
+    try {
+      const response = await axios.get(`${API_URL}/games/${gameId}/service-health`);
+      setServiceHealth(response.data);
+    } catch (error: any) {
+      console.error('Error fetching service health:', error);
+      // Don't show error toast, service health is optional
     }
   };
 
@@ -100,21 +138,6 @@ export default function OperationsDashboardPage() {
     } finally {
       setUpdating(false);
     }
-  };
-
-  const calculateTimeRemaining = (slaDeadline: string) => {
-    const now = new Date();
-    const deadline = new Date(slaDeadline);
-    const diffMs = deadline.getTime() - now.getTime();
-
-    if (diffMs < 0) return 'SLA BREACHED';
-
-    const diffMins = Math.floor(diffMs / 60000);
-    const hours = Math.floor(diffMins / 60);
-    const mins = diffMins % 60;
-
-    if (hours > 0) return `${hours}h ${mins}m`;
-    return `${mins}m`;
   };
 
   const getPriorityColor = (priority: string) => {
@@ -199,7 +222,7 @@ export default function OperationsDashboardPage() {
         </div>
 
         {/* Stats Row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-white rounded-lg shadow p-4">
             <h3 className="text-sm font-semibold text-gray-600 mb-1">Active Incidents</h3>
             <p className="text-3xl font-bold text-hawk-purple">{activeIncidentCount}</p>
@@ -212,7 +235,40 @@ export default function OperationsDashboardPage() {
             <h3 className="text-sm font-semibold text-gray-600 mb-1">Technical Debt</h3>
             <p className="text-3xl font-bold text-orange-600">{technicalDebt.length}</p>
           </div>
+          {serviceHealth && (
+            <div
+              className="bg-white rounded-lg shadow p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+              onClick={() => setShowServiceHealth(!showServiceHealth)}
+            >
+              <h3 className="text-sm font-semibold text-gray-600 mb-1">System Health</h3>
+              <div className="flex items-center gap-2">
+                <p className={`text-3xl font-bold ${
+                  serviceHealth.healthScore >= 90 ? 'text-green-600' :
+                  serviceHealth.healthScore >= 70 ? 'text-yellow-600' :
+                  'text-red-600'
+                }`}>{serviceHealth.healthScore}%</p>
+                <div className="flex gap-1 text-xs">
+                  {serviceHealth.down > 0 && (
+                    <span className="bg-red-100 text-red-700 px-2 py-1 rounded">{serviceHealth.down} down</span>
+                  )}
+                  {serviceHealth.degraded > 0 && (
+                    <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded">{serviceHealth.degraded} degraded</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* Service Health Dashboard (collapsible) */}
+        {showServiceHealth && serviceHealth && (
+          <div className="mb-6">
+            <ServiceHealthDashboard
+              services={serviceHealth.services}
+              compact={false}
+            />
+          </div>
+        )}
 
         {/* Incident Queue */}
         <div className="bg-white rounded-lg shadow">
@@ -227,11 +283,7 @@ export default function OperationsDashboardPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {incidents.map((incident) => {
-                  const timeRemaining = calculateTimeRemaining(incident.slaDeadline);
-                  const isSlaBreached = timeRemaining === 'SLA BREACHED';
-
-                  return (
+                {incidents.map((incident) => (
                     <div
                       key={incident.id}
                       onClick={() => setSelectedIncident(incident)}
@@ -251,15 +303,15 @@ export default function OperationsDashboardPage() {
                             {incident.status.replace('_', ' ').toUpperCase()}
                           </span>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 items-center">
                           <span className={`text-xs px-2 py-1 rounded border font-semibold ${getPriorityColor(incident.priority)}`}>
                             {incident.priority.toUpperCase()}
                           </span>
-                          <span className={`text-xs px-2 py-1 rounded font-semibold ${
-                            isSlaBreached ? 'bg-red-600 text-white' : 'bg-green-100 text-green-700'
-                          }`}>
-                            {timeRemaining}
-                          </span>
+                          <SLATimer
+                            deadline={incident.slaDeadline}
+                            compact={true}
+                            onBreach={() => toast.error(`SLA Breached: ${incident.incidentNumber}`)}
+                          />
                         </div>
                       </div>
                       <h4 className="font-semibold text-gray-800 mb-1">{incident.title}</h4>
@@ -269,8 +321,7 @@ export default function OperationsDashboardPage() {
                         <span>Created: {new Date(incident.createdAt).toLocaleString()}</span>
                       </div>
                     </div>
-                  );
-                })}
+                ))}
               </div>
             )}
           </div>
@@ -368,10 +419,8 @@ export default function OperationsDashboardPage() {
                 <h3 style={{ fontWeight: '600', color: '#1f2937', marginBottom: '12px' }}>SLA Information</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                   <div>
-                    <span style={{ fontSize: '14px', color: '#4b5563', display: 'block' }}>Time Remaining</span>
-                    <p style={{ fontSize: '18px', fontWeight: 'bold', color: '#4B2E83', margin: '4px 0 0 0' }}>
-                      {calculateTimeRemaining(selectedIncident.slaDeadline)}
-                    </p>
+                    <span style={{ fontSize: '14px', color: '#4b5563', display: 'block', marginBottom: '8px' }}>Time Remaining</span>
+                    <SLATimer deadline={selectedIncident.slaDeadline} compact={false} />
                   </div>
                   <div>
                     <span style={{ fontSize: '14px', color: '#4b5563', display: 'block' }}>Deadline</span>

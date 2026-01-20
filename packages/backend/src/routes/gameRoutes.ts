@@ -15,4 +15,9 @@ router.get('/:gameId', (req, res) => gameController.getGame(req, res));
 // Join a game
 router.post('/:gameId/join', (req, res) => gameController.joinGame(req, res));
 
+// Service Health endpoints
+router.get('/:gameId/service-health', (req, res) => gameController.getServiceHealth(req, res));
+router.post('/:gameId/initialize-services', (req, res) => gameController.initializeServices(req, res));
+router.post('/:gameId/refresh-service-status', (req, res) => gameController.refreshServiceStatus(req, res));
+
 export default router;
