@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import axios from 'axios';
 
@@ -182,10 +182,17 @@ export default function OperationsDashboardPage() {
                 </div>
               </div>
             </div>
-            <div className="text-right">
+            <div className="text-right space-y-2">
               <p className="text-sm text-gray-600">{game.name}</p>
               <p className="text-sm text-gray-500">Round {game.currentRound}/{game.maxRounds}</p>
-              <p className="text-sm text-gray-500 mt-2">Difficulty: {game.difficultyLevel}/10</p>
+              <p className="text-sm text-gray-500">Difficulty: {game.difficultyLevel}/10</p>
+              <Link
+                to={`/game/${game.id}/briefing?playerId=PLACEHOLDER`}
+                className="inline-block mt-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold py-2 px-4 rounded transition-colors"
+                title="Note: Replace PLACEHOLDER with actual playerId in production"
+              >
+                📄 Briefing Documents
+              </Link>
             </div>
           </div>
         </div>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import axios from 'axios';
+import DocumentEditor from '../components/DocumentEditor';
 
 const API_URL = import.meta.env.PROD ? '/api' : 'http://localhost:3000/api';
 
@@ -220,28 +221,19 @@ export default function DocumentManagerPage() {
         </div>
       </div>
 
-      {/* Create/Edit Modal - Placeholder for now */}
+      {/* Create/Edit Modal */}
       {(showCreateModal || selectedDoc) && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6">
-            <h2 className="text-2xl font-bold mb-4">
-              {selectedDoc ? 'Edit Document' : 'Create Document'}
-            </h2>
-            <p className="text-gray-600 mb-4">
-              Full document editor coming soon. For now, use the API directly or wait for the next
-              update.
-            </p>
-            <button
-              onClick={() => {
-                setShowCreateModal(false);
-                setSelectedDoc(null);
-              }}
-              className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
-            >
-              Close
-            </button>
-          </div>
-        </div>
+        <DocumentEditor
+          gameId={gameId!}
+          document={selectedDoc}
+          onClose={() => {
+            setShowCreateModal(false);
+            setSelectedDoc(null);
+          }}
+          onSave={() => {
+            fetchDocuments();
+          }}
+        />
       )}
     </div>
   );
