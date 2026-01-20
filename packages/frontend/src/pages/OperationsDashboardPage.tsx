@@ -187,9 +187,8 @@ export default function OperationsDashboardPage() {
               <p className="text-sm text-gray-500">Round {game.currentRound}/{game.maxRounds}</p>
               <p className="text-sm text-gray-500">Difficulty: {game.difficultyLevel}/10</p>
               <Link
-                to={`/game/${game.id}/briefing?playerId=PLACEHOLDER`}
+                to={`/game/${game.id}/briefing?teamId=${team.id}`}
                 className="inline-block mt-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold py-2 px-4 rounded transition-colors"
-                title="Note: Replace PLACEHOLDER with actual playerId in production"
               >
                 📄 Briefing Documents
               </Link>

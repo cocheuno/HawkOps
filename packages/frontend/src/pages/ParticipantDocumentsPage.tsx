@@ -22,6 +22,7 @@ export default function ParticipantDocumentsPage() {
   const { gameId } = useParams();
   const [searchParams] = useSearchParams();
   const playerId = searchParams.get('playerId');
+  const teamId = searchParams.get('teamId');
 
   const [documents, setDocuments] = useState<Document[]>([]);
   const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
@@ -29,14 +30,18 @@ export default function ParticipantDocumentsPage() {
   const [markingRead, setMarkingRead] = useState(false);
 
   const fetchDocuments = async () => {
-    if (!playerId) {
-      toast.error('Player ID is required');
+    if (!playerId && !teamId) {
+      toast.error('Player ID or Team ID is required');
       setLoading(false);
       return;
     }
 
     try {
-      const response = await axios.get(`${API_URL}/games/${gameId}/documents?playerId=${playerId}`);
+      const params = new URLSearchParams();
+      if (playerId) params.set('playerId', playerId);
+      if (teamId) params.set('teamId', teamId);
+
+      const response = await axios.get(`${API_URL}/games/${gameId}/documents?${params.toString()}`);
       setDocuments(response.data.documents);
       setLoading(false);
     } catch (error: any) {
@@ -47,11 +52,13 @@ export default function ParticipantDocumentsPage() {
   };
 
   const fetchDocumentContent = async (documentId: string) => {
-    if (!playerId) return;
-
     try {
+      const params = new URLSearchParams();
+      if (playerId) params.set('playerId', playerId);
+      if (teamId) params.set('teamId', teamId);
+
       const response = await axios.get(
-        `${API_URL}/games/${gameId}/documents/${documentId}?playerId=${playerId}`
+        `${API_URL}/games/${gameId}/documents/${documentId}?${params.toString()}`
       );
       setSelectedDoc(response.data.document);
     } catch (error: any) {
