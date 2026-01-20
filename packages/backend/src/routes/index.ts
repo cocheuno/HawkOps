@@ -3,6 +3,7 @@ import gameRoutes from './gameRoutes';
 import instructorRoutes from './instructorRoutes';
 import adminRoutes from './adminRoutes';
 import teamRoutes from './teamRoutes';
+import documentRoutes from './documentRoutes';
 
 const router = Router();
 
@@ -19,6 +20,9 @@ router.use('/instructor', instructorRoutes);
 
 // Team routes
 router.use('/teams', teamRoutes);
+
+// Document routes (includes both instructor and participant endpoints)
+router.use('/', documentRoutes);
 
 // Admin routes (for database setup, etc.)
 // WARNING: Secure these endpoints in production!
