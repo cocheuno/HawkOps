@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import axios from 'axios';
+import Navigation from '../components/Navigation';
 
 const API_URL = import.meta.env.PROD ? '/api' : 'http://localhost:3000/api';
 
@@ -22,6 +23,7 @@ export default function ParticipantDocumentsPage() {
   const { gameId } = useParams();
   const [searchParams] = useSearchParams();
   const playerId = searchParams.get('playerId');
+  const teamId = searchParams.get('teamId');
 
   const [documents, setDocuments] = useState<Document[]>([]);
   const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
@@ -29,14 +31,18 @@ export default function ParticipantDocumentsPage() {
   const [markingRead, setMarkingRead] = useState(false);
 
   const fetchDocuments = async () => {
-    if (!playerId) {
-      toast.error('Player ID is required');
+    if (!playerId && !teamId) {
+      toast.error('Player ID or Team ID is required');
       setLoading(false);
       return;
     }
 
     try {
-      const response = await axios.get(`${API_URL}/games/${gameId}/documents?playerId=${playerId}`);
+      const params = new URLSearchParams();
+      if (playerId) params.set('playerId', playerId);
+      if (teamId) params.set('teamId', teamId);
+
+      const response = await axios.get(`${API_URL}/games/${gameId}/documents?${params.toString()}`);
       setDocuments(response.data.documents);
       setLoading(false);
     } catch (error: any) {
@@ -47,11 +53,13 @@ export default function ParticipantDocumentsPage() {
   };
 
   const fetchDocumentContent = async (documentId: string) => {
-    if (!playerId) return;
-
     try {
+      const params = new URLSearchParams();
+      if (playerId) params.set('playerId', playerId);
+      if (teamId) params.set('teamId', teamId);
+
       const response = await axios.get(
-        `${API_URL}/games/${gameId}/documents/${documentId}?playerId=${playerId}`
+        `${API_URL}/games/${gameId}/documents/${documentId}?${params.toString()}`
       );
       setSelectedDoc(response.data.document);
     } catch (error: any) {
@@ -136,8 +144,9 @@ export default function ParticipantDocumentsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
-      <div className="max-w-5xl mx-auto">
+    <div className="min-h-screen bg-gray-100">
+      <Navigation title="Briefing Documents" />
+      <div className="max-w-5xl mx-auto px-6 pb-6">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">Briefing Documents</h1>

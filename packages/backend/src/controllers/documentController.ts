@@ -375,54 +375,63 @@ export class DocumentController {
    */
   async getParticipantDocuments(req: Request, res: Response) {
     const { gameId } = req.params;
-    const { playerId } = req.query;
+    const { playerId, teamId: queryTeamId } = req.query;
 
-    if (!playerId) {
+    if (!playerId && !queryTeamId) {
       return res.status(400).json({
         success: false,
-        error: 'playerId query parameter is required',
+        error: 'Either playerId or teamId query parameter is required',
       });
     }
 
     const pool = getPool();
 
     try {
-      // Get player's team
-      const playerResult = await pool.query(
-        `SELECT team_id FROM players WHERE id = $1::uuid`,
-        [playerId]
-      );
+      let teamId = queryTeamId;
+      let effectivePlayerId = playerId;
 
-      if (playerResult.rows.length === 0) {
-        return res.status(404).json({
-          success: false,
-          error: 'Player not found',
-        });
+      // If playerId is provided, get player's team
+      if (playerId) {
+        const playerResult = await pool.query(
+          `SELECT team_id FROM players WHERE id = $1::uuid`,
+          [playerId]
+        );
+
+        if (playerResult.rows.length === 0) {
+          return res.status(404).json({
+            success: false,
+            error: 'Player not found',
+          });
+        }
+
+        teamId = playerResult.rows[0].team_id;
       }
 
-      const teamId = playerResult.rows[0].team_id;
-
-      // Get documents visible to this player
+      // Get documents visible to this player/team
       const result = await pool.query(
         `SELECT id, document_type, title, visibility, is_required_reading,
                 estimated_read_time, tags, created_at,
-                read_receipts @> $1::jsonb as is_read
+                ${effectivePlayerId ? `read_receipts @> $1::jsonb as is_read` : 'false as is_read'}
          FROM simulation_documents
-         WHERE game_id = $2::uuid
+         WHERE game_id = $${effectivePlayerId ? '2' : '1'}::uuid
            AND status = 'published'
            AND (publish_at IS NULL OR publish_at <= NOW())
            AND (
              visibility = 'all_participants'
-             OR (visibility = 'team_only' AND team_id = $3::uuid)
-             OR (visibility = 'player_only' AND player_id = $4::uuid)
+             ${teamId ? `OR (visibility = 'team_only' AND team_id = $${effectivePlayerId ? '3' : '2'}::uuid)` : ''}
+             ${effectivePlayerId ? `OR (visibility = 'player_only' AND player_id = $4::uuid)` : ''}
            )
          ORDER BY order_index, created_at`,
-        [
-          JSON.stringify([{ player_id: playerId }]),
-          gameId,
-          teamId,
-          playerId,
-        ]
+        effectivePlayerId
+          ? [
+              JSON.stringify([{ player_id: playerId }]),
+              gameId,
+              teamId,
+              playerId,
+            ]
+          : teamId
+          ? [gameId, teamId]
+          : [gameId]
       );
 
       return res.json({
@@ -445,55 +454,64 @@ export class DocumentController {
    */
   async getParticipantDocument(req: Request, res: Response) {
     const { gameId, documentId } = req.params;
-    const { playerId } = req.query;
+    const { playerId, teamId: queryTeamId } = req.query;
 
-    if (!playerId) {
+    if (!playerId && !queryTeamId) {
       return res.status(400).json({
         success: false,
-        error: 'playerId query parameter is required',
+        error: 'Either playerId or teamId query parameter is required',
       });
     }
 
     const pool = getPool();
 
     try {
-      // Get player's team
-      const playerResult = await pool.query(
-        `SELECT team_id FROM players WHERE id = $1::uuid`,
-        [playerId]
-      );
+      let teamId = queryTeamId;
+      let effectivePlayerId = playerId;
 
-      if (playerResult.rows.length === 0) {
-        return res.status(404).json({
-          success: false,
-          error: 'Player not found',
-        });
+      // If playerId is provided, get player's team
+      if (playerId) {
+        const playerResult = await pool.query(
+          `SELECT team_id FROM players WHERE id = $1::uuid`,
+          [playerId]
+        );
+
+        if (playerResult.rows.length === 0) {
+          return res.status(404).json({
+            success: false,
+            error: 'Player not found',
+          });
+        }
+
+        teamId = playerResult.rows[0].team_id;
       }
-
-      const teamId = playerResult.rows[0].team_id;
 
       // Get document with access control
       const result = await pool.query(
         `SELECT id, document_type, title, content, visibility, is_required_reading,
                 estimated_read_time, tags, created_at,
-                read_receipts @> $1::jsonb as is_read
+                ${effectivePlayerId ? `read_receipts @> $1::jsonb as is_read` : 'false as is_read'}
          FROM simulation_documents
-         WHERE id = $2::uuid
-           AND game_id = $3::uuid
+         WHERE id = $${effectivePlayerId ? '2' : '1'}::uuid
+           AND game_id = $${effectivePlayerId ? '3' : '2'}::uuid
            AND status = 'published'
            AND (publish_at IS NULL OR publish_at <= NOW())
            AND (
              visibility = 'all_participants'
-             OR (visibility = 'team_only' AND team_id = $4::uuid)
-             OR (visibility = 'player_only' AND player_id = $5::uuid)
+             ${teamId ? `OR (visibility = 'team_only' AND team_id = $${effectivePlayerId ? '4' : '3'}::uuid)` : ''}
+             ${effectivePlayerId ? `OR (visibility = 'player_only' AND player_id = $5::uuid)` : ''}
            )`,
-        [
-          JSON.stringify([{ player_id: playerId }]),
-          documentId,
-          gameId,
-          teamId,
-          playerId,
-        ]
+        effectivePlayerId
+          ? [
+              JSON.stringify([{ player_id: playerId }]),
+              documentId,
+              gameId,
+              teamId,
+              playerId,
+            ]
+          : teamId
+          ? [documentId, gameId, teamId]
+          : [documentId, gameId]
       );
 
       if (result.rows.length === 0) {

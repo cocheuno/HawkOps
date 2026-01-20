@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import axios from 'axios';
+import Navigation from '../components/Navigation';
 
 const API_URL = import.meta.env.PROD ? '/api' : 'http://localhost:3000/api';
 
@@ -155,8 +156,9 @@ export default function OperationsDashboardPage() {
   const { team, game, incidents, activeIncidentCount, technicalDebt } = dashboardData;
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gray-100">
+      <Navigation title={`${team.name} Dashboard`} showBack={false} />
+      <div className="max-w-7xl mx-auto px-6 pb-6">
         {/* Team Header */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <div className="flex justify-between items-start">
@@ -187,9 +189,8 @@ export default function OperationsDashboardPage() {
               <p className="text-sm text-gray-500">Round {game.currentRound}/{game.maxRounds}</p>
               <p className="text-sm text-gray-500">Difficulty: {game.difficultyLevel}/10</p>
               <Link
-                to={`/game/${game.id}/briefing?playerId=PLACEHOLDER`}
+                to={`/game/${game.id}/briefing?teamId=${team.id}`}
                 className="inline-block mt-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold py-2 px-4 rounded transition-colors"
-                title="Note: Replace PLACEHOLDER with actual playerId in production"
               >
                 📄 Briefing Documents
               </Link>

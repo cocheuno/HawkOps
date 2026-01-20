@@ -76,7 +76,9 @@ CREATE INDEX IF NOT EXISTS idx_sim_docs_type ON simulation_documents(game_id, do
 CREATE INDEX IF NOT EXISTS idx_doc_templates_type ON document_templates(document_type);
 CREATE INDEX IF NOT EXISTS idx_doc_templates_scenario ON document_templates(scenario_type) WHERE scenario_type IS NOT NULL;
 
--- Insert default templates
+-- Insert default templates (delete existing system templates first to prevent duplicates)
+DELETE FROM document_templates WHERE created_by = 'system';
+
 INSERT INTO document_templates (name, description, document_type, content_template, placeholders, scenario_type, is_public, created_by) VALUES
 ('Standard General Briefing', 'Basic briefing template for ITSM simulations', 'general_briefing',
 '# {{game_name}} - General Briefing

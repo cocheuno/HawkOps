@@ -7,6 +7,7 @@ import InstructorDashboardPage from './pages/InstructorDashboardPage';
 import OperationsDashboardPage from './pages/OperationsDashboardPage';
 import DocumentManagerPage from './pages/DocumentManagerPage';
 import ParticipantDocumentsPage from './pages/ParticipantDocumentsPage';
+import AIScenarioGeneratorPage from './pages/AIScenarioGeneratorPage';
 import './App.css';
 
 function App() {
@@ -19,6 +20,7 @@ function App() {
         <Route path="/game/:gameId" element={<GameplayPage />} />
         <Route path="/instructor/:gameId" element={<InstructorDashboardPage />} />
         <Route path="/instructor/game/:gameId/documents" element={<DocumentManagerPage />} />
+        <Route path="/instructor/game/:gameId/ai-generate" element={<AIScenarioGeneratorPage />} />
         <Route path="/game/:gameId/briefing" element={<ParticipantDocumentsPage />} />
         <Route path="/team/:teamId" element={<OperationsDashboardPage />} />
       </Routes>
