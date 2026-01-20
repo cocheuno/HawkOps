@@ -5,6 +5,66 @@ import logger from '../utils/logger';
 class ClaudeService {
   private client: Anthropic;
 
+  /**
+   * Sanitize JSON string by properly escaping control characters within string values
+   */
+  private sanitizeJsonString(text: string): string {
+    // First, try to extract JSON array from the response (in case there's extra text)
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) {
+      return text;
+    }
+
+    let jsonStr = jsonMatch[0];
+
+    // Fix control characters within JSON string values
+    // This regex finds string content between quotes and escapes unescaped control characters
+    let result = '';
+    let inString = false;
+    let escapeNext = false;
+
+    for (let i = 0; i < jsonStr.length; i++) {
+      const char = jsonStr[i];
+      const charCode = char.charCodeAt(0);
+
+      if (escapeNext) {
+        result += char;
+        escapeNext = false;
+        continue;
+      }
+
+      if (char === '\\') {
+        result += char;
+        escapeNext = true;
+        continue;
+      }
+
+      if (char === '"') {
+        inString = !inString;
+        result += char;
+        continue;
+      }
+
+      // If we're inside a string and find a control character, escape it
+      if (inString && charCode < 32) {
+        if (charCode === 10) { // newline
+          result += '\\n';
+        } else if (charCode === 13) { // carriage return
+          result += '\\r';
+        } else if (charCode === 9) { // tab
+          result += '\\t';
+        } else {
+          // Other control characters - use unicode escape
+          result += '\\u' + charCode.toString(16).padStart(4, '0');
+        }
+      } else {
+        result += char;
+      }
+    }
+
+    return result;
+  }
+
   constructor() {
     if (!env.ANTHROPIC_API_KEY) {
       logger.warn('ANTHROPIC_API_KEY not set. Claude AI features will be disabled.');
@@ -181,14 +241,16 @@ Each object should have these exact fields: title, description, learningObjectiv
       const text = textContent && 'text' in textContent ? textContent.text : '';
 
       try {
-        const scenarios = JSON.parse(text);
+        // Sanitize the response to handle control characters in string values
+        const sanitizedText = this.sanitizeJsonString(text);
+        const scenarios = JSON.parse(sanitizedText);
         if (Array.isArray(scenarios) && scenarios.length === 5) {
           return scenarios;
         }
         throw new Error('Invalid scenario format');
       } catch (parseError) {
         logger.error('Error parsing scenarios:', parseError);
-        logger.error('Raw response:', text);
+        logger.error('Raw response length:', text.length);
         throw new Error('Failed to parse AI-generated scenarios');
       }
     } catch (error) {
@@ -248,14 +310,16 @@ Return ONLY valid JSON array: [{documentType, title, content, visibility, teamId
       const text = textContent && 'text' in textContent ? textContent.text : '';
 
       try {
-        const documents = JSON.parse(text);
+        // Sanitize the response to handle control characters in string values
+        const sanitizedText = this.sanitizeJsonString(text);
+        const documents = JSON.parse(sanitizedText);
         if (Array.isArray(documents)) {
           return documents;
         }
         throw new Error('Invalid documents format');
       } catch (parseError) {
         logger.error('Error parsing documents:', parseError);
-        logger.error('Raw response:', text);
+        logger.error('Raw response length:', text.length);
         throw new Error('Failed to parse AI-generated documents');
       }
     } catch (error) {
