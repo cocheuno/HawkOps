@@ -157,7 +157,7 @@ export default function OperationsDashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <Navigation title={`${team.name} Dashboard`} showBack={false} />
+      <Navigation title={`${team.name} Dashboard`} showBack={false} homeUrl={`/instructor/${game.id}`} />
       <div className="max-w-7xl mx-auto px-6 pb-6">
         {/* Team Header */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
