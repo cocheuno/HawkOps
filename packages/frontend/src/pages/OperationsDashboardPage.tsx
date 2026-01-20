@@ -268,7 +268,10 @@ export default function OperationsDashboardPage() {
       {/* Incident Detail Modal */}
       {selectedIncident && (
         <div
-          onClick={() => setSelectedIncident(null)}
+          onClick={() => {
+            console.log('Overlay clicked - closing modal');
+            setSelectedIncident(null);
+          }}
           style={{
             position: 'fixed',
             top: 0,
@@ -283,8 +286,32 @@ export default function OperationsDashboardPage() {
             zIndex: 9999
           }}
         >
+          {/* DEBUG: Bright red test box */}
           <div
-            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'absolute',
+              top: '50px',
+              left: '50px',
+              width: '200px',
+              height: '200px',
+              backgroundColor: '#ff0000',
+              color: '#ffffff',
+              fontSize: '24px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 10000,
+              border: '5px solid yellow'
+            }}
+          >
+            TEST BOX
+          </div>
+
+          <div
+            onClick={(e) => {
+              console.log('Modal content clicked - should NOT close');
+              e.stopPropagation();
+            }}
             style={{
               backgroundColor: '#ffffff',
               borderRadius: '8px',
@@ -293,7 +320,8 @@ export default function OperationsDashboardPage() {
               maxHeight: '90vh',
               overflow: 'auto',
               boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-              color: '#1f2937'
+              color: '#1f2937',
+              border: '10px solid #00ff00'
             }}
           >
             {/* Header */}
