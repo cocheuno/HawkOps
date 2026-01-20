@@ -151,7 +151,7 @@ export class TeamController {
       const incidentResult = await pool.query(
         `SELECT game_id, assigned_to_team_id, status as current_status
          FROM incidents
-         WHERE id = CAST($1 AS uuid)`,
+         WHERE id = $1::uuid`,
         [incidentId]
       );
 
@@ -175,9 +175,9 @@ export class TeamController {
       // Update incident status
       const updateResult = await pool.query(
         `UPDATE incidents
-         SET status = $1, updated_at = NOW(),
-             resolved_at = CASE WHEN $1 IN ('resolved', 'closed') THEN NOW() ELSE resolved_at END
-         WHERE id = CAST($2 AS uuid)
+         SET status = $1::varchar, updated_at = NOW(),
+             resolved_at = CASE WHEN $1::varchar IN ('resolved', 'closed') THEN NOW() ELSE resolved_at END
+         WHERE id = $2::uuid
          RETURNING *`,
         [status, incidentId]
       );
