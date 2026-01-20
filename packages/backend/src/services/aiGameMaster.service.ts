@@ -7,10 +7,21 @@ import logger from '../utils/logger';
  * Uses Claude to generate dynamic, context-aware incidents and scenarios
  */
 
+interface ScenarioContext {
+  title: string;
+  description: string;
+  learningObjectives: string[];
+  primaryDomain: string;
+  secondaryDomains: string[];
+  keyChallenges: string[];
+  difficulty: number;
+}
+
 interface GameContext {
   gameId: string;
   gameName: string;
   scenarioType: string;
+  scenarioContext: ScenarioContext | null;
   currentRound: number;
   maxRounds: number;
   difficultyLevel: number;
@@ -102,9 +113,9 @@ export class AIGameMasterService {
     const client = await this.pool.connect();
 
     try {
-      // Get game details
+      // Get game details including scenario context
       const gameResult = await client.query(
-        `SELECT name, scenario_type, current_round, max_rounds, difficulty_level, ai_personality
+        `SELECT name, scenario_type, current_round, max_rounds, difficulty_level, ai_personality, scenario_context
          FROM games WHERE id = $1`,
         [gameId]
       );
@@ -152,6 +163,7 @@ export class AIGameMasterService {
         gameId,
         gameName: game.name,
         scenarioType: game.scenario_type,
+        scenarioContext: game.scenario_context || null,
         currentRound: game.current_round,
         maxRounds: game.max_rounds,
         difficultyLevel: game.difficulty_level,
@@ -182,11 +194,12 @@ export class AIGameMasterService {
 Your role is to generate realistic, challenging IT incidents that create learning opportunities while maintaining an engaging experience.
 
 Key Principles:
-1. Incidents should have clear cause-effect relationships
-2. They should require cross-team collaboration (Management, Operations, Development)
-3. They must teach specific ITSM/DevOps concepts
-4. Difficulty should match the current game state
-5. Incidents should build on previous events (create narrative continuity)
+1. Incidents MUST be faithful to the scenario context - if it's a healthcare ransomware scenario, incidents should relate to healthcare, patient data, ransomware effects, etc.
+2. Incidents should have clear cause-effect relationships
+3. They should require cross-team collaboration (Management, Operations, Development)
+4. They must teach specific ITSM/DevOps concepts
+5. Difficulty should match the current game state
+6. Incidents should build on previous events (create narrative continuity)
 
 ITSM Concepts to Teach:
 - SLA management and prioritization
@@ -229,10 +242,25 @@ Return ONLY a valid JSON object with this exact structure (no markdown, no expla
   private buildIncidentGenerationPrompt(context: GameContext): string {
     const chaosLevel = this.calculateChaosLevel(context);
 
+    // Build scenario context section if available
+    let scenarioSection = `Scenario Type: ${context.scenarioType}`;
+    if (context.scenarioContext) {
+      const sc = context.scenarioContext;
+      scenarioSection = `
+SCENARIO CONTEXT (IMPORTANT - incidents MUST align with this scenario):
+Title: "${sc.title}"
+Description: ${sc.description}
+Primary Domain: ${sc.primaryDomain}
+Secondary Domains: ${sc.secondaryDomains?.join(', ') || 'None'}
+Key Challenges: ${sc.keyChallenges?.join('; ') || 'None specified'}
+Learning Objectives:
+${sc.learningObjectives?.map((obj) => `  - ${obj}`).join('\n') || '  - Not specified'}`;
+    }
+
     return `Generate an IT incident for the current game state:
 
 Game: "${context.gameName}"
-Scenario: ${context.scenarioType}
+${scenarioSection}
 Round: ${context.currentRound} of ${context.maxRounds}
 Difficulty: ${context.difficultyLevel}/10
 Current Chaos Level: ${chaosLevel}/10
@@ -261,7 +289,9 @@ Generate an incident that:
 1. Matches the current difficulty level (${context.difficultyLevel}/10)
 2. Creates interesting cross-team dependencies
 3. Has a clear teaching moment
-4. Feels realistic for a ${context.scenarioType} business
+4. Is directly relevant to the scenario context${context.scenarioContext ? ` ("${context.scenarioContext.title}")` : ''}
+5. Addresses one or more of the learning objectives
+6. Feels realistic for this specific scenario
 
 Return ONLY the JSON object, no other text.`;
   }
