@@ -150,9 +150,6 @@ export default function OperationsDashboardPage() {
 
   const { team, game, incidents, activeIncidentCount, technicalDebt } = dashboardData;
 
-  // DEBUG: Log selected incident state every render
-  console.log('RENDER - selectedIncident:', selectedIncident);
-
   return (
     <div className="min-h-screen bg-gray-100 p-6">
       <div className="max-w-7xl mx-auto">
@@ -225,12 +222,7 @@ export default function OperationsDashboardPage() {
                   return (
                     <div
                       key={incident.id}
-                      onClick={() => {
-                        console.log('INCIDENT CLICKED:', incident.incidentNumber, incident);
-                        console.log('Setting selectedIncident...');
-                        setSelectedIncident(incident);
-                        console.log('selectedIncident set');
-                      }}
+                      onClick={() => setSelectedIncident(incident)}
                       className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors"
                     >
                       <div className="flex justify-between items-start mb-2">
@@ -276,10 +268,7 @@ export default function OperationsDashboardPage() {
       {/* Incident Detail Modal */}
       {selectedIncident && (
         <div
-          onClick={() => {
-            console.log('Overlay clicked - closing modal');
-            setSelectedIncident(null);
-          }}
+          onClick={() => setSelectedIncident(null)}
           style={{
             position: 'fixed',
             top: 0,
@@ -294,32 +283,8 @@ export default function OperationsDashboardPage() {
             zIndex: 9999
           }}
         >
-          {/* DEBUG: Bright red test box */}
           <div
-            style={{
-              position: 'absolute',
-              top: '50px',
-              left: '50px',
-              width: '200px',
-              height: '200px',
-              backgroundColor: '#ff0000',
-              color: '#ffffff',
-              fontSize: '24px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 10000,
-              border: '5px solid yellow'
-            }}
-          >
-            TEST BOX
-          </div>
-
-          <div
-            onClick={(e) => {
-              console.log('Modal content clicked - should NOT close');
-              e.stopPropagation();
-            }}
+            onClick={(e) => e.stopPropagation()}
             style={{
               backgroundColor: '#ffffff',
               borderRadius: '8px',
@@ -328,8 +293,7 @@ export default function OperationsDashboardPage() {
               maxHeight: '90vh',
               overflow: 'auto',
               boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-              color: '#1f2937',
-              border: '10px solid #00ff00'
+              color: '#1f2937'
             }}
           >
             {/* Header */}
@@ -406,13 +370,13 @@ export default function OperationsDashboardPage() {
                   <div>
                     <span style={{ fontSize: '14px', color: '#4b5563', display: 'block' }}>Est. Cost/Min</span>
                     <p style={{ fontSize: '18px', fontWeight: 'bold', color: '#ea580c', margin: '4px 0 0 0' }}>
-                      ${selectedIncident.estimatedCostPerMinute}
+                      ${Number(selectedIncident.estimatedCostPerMinute || 0).toFixed(2)}
                     </p>
                   </div>
                   <div>
                     <span style={{ fontSize: '14px', color: '#4b5563', display: 'block' }}>Total Cost</span>
                     <p style={{ fontSize: '18px', fontWeight: 'bold', color: '#dc2626', margin: '4px 0 0 0' }}>
-                      ${selectedIncident.totalCost.toFixed(2)}
+                      ${Number(selectedIncident.totalCost || 0).toFixed(2)}
                     </p>
                   </div>
                 </div>
