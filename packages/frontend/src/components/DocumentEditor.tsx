@@ -34,7 +34,7 @@ interface DocumentEditorProps {
 export default function DocumentEditor({ gameId, document, onClose, onSave }: DocumentEditorProps) {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
-  const [players, setPlayers] = useState<Player[]>([]);
+  const [players] = useState<Player[]>([]); // setPlayers unused - players endpoint not yet implemented
 
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [documentType, setDocumentType] = useState(document?.document_type || 'general_briefing');
