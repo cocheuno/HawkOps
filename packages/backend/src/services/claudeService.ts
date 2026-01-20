@@ -261,7 +261,7 @@ For team packets, create one document per team with teamId set to the team name 
       // Use Sonnet for document generation as it produces better quality detailed content
       // Haiku's 4096 token limit may be insufficient for multiple comprehensive documents
       const response = await this.client.messages.create({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'claude-3-5-sonnet-20240620',
         max_tokens: 4096,
         system: 'You are an expert ITSM instructor creating detailed simulation materials.',
         messages: [
