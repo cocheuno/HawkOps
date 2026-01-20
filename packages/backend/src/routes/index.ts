@@ -4,6 +4,7 @@ import instructorRoutes from './instructorRoutes';
 import adminRoutes from './adminRoutes';
 import teamRoutes from './teamRoutes';
 import documentRoutes from './documentRoutes';
+import aiRoutes from './aiRoutes';
 
 const router = Router();
 
@@ -24,14 +25,11 @@ router.use('/teams', teamRoutes);
 // Document routes (includes both instructor and participant endpoints)
 router.use('/', documentRoutes);
 
+// AI routes (scenario and document generation)
+router.use('/', aiRoutes);
+
 // Admin routes (for database setup, etc.)
 // WARNING: Secure these endpoints in production!
 router.use('/admin', adminRoutes);
-
-// TODO: Add additional route modules
-// import userRoutes from './userRoutes';
-// import aiRoutes from './aiRoutes';
-// router.use('/users', userRoutes);
-// router.use('/ai', aiRoutes);
 
 export default router;
