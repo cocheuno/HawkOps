@@ -43,6 +43,7 @@ interface GeneratedIncident {
   slaMinutes: number;
   teachingPoint: string;
   aiReasoning: string;
+  assignToTeam: string; // Team name that should handle this incident
 }
 
 export class AIGameMasterService {
@@ -201,6 +202,11 @@ Your personality: ${context.aiPersonality}
 - "strict": High pressure, realistic enterprise conditions
 - "encouraging": Supportive, provides hints and guidance
 
+Team Roles and Responsibilities:
+- Service Desk: First point of contact, user communication, incident triage, ticket management
+- Technical Operations: Technical troubleshooting, system recovery, infrastructure, data restoration
+- Management/CAB: Strategic decisions, compliance, legal issues, public relations, resource allocation
+
 Output Format:
 Return ONLY a valid JSON object with this exact structure (no markdown, no explanation):
 {
@@ -212,7 +218,8 @@ Return ONLY a valid JSON object with this exact structure (no markdown, no expla
   "estimatedCostPerMinute": number (business impact in dollars),
   "slaMinutes": number (time before SLA breach),
   "teachingPoint": "What ITSM/DevOps principle this incident teaches",
-  "aiReasoning": "Why you chose this incident given the current game state"
+  "aiReasoning": "Why you chose this incident given the current game state",
+  "assignToTeam": "Name of the team that should handle this (e.g., 'Service Desk', 'Technical Operations', 'Management/CAB')"
 }`;
   }
 
