@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import axios from 'axios';
+import ReactMarkdown from 'react-markdown';
 import Navigation from '../components/Navigation';
 
 const API_URL = import.meta.env.PROD ? '/api' : 'http://localhost:3000/api';
@@ -135,17 +136,21 @@ export default function ParticipantDocumentsPage() {
     );
   }
 
-  if (!playerId) {
+  if (!playerId && !teamId) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-xl text-red-600">Player ID is required in URL parameters</div>
+        <div className="text-xl text-red-600">Player ID or Team ID is required in URL parameters</div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <Navigation title="Briefing Documents" />
+      <Navigation
+        title="Briefing Documents"
+        homeUrl={`/instructor/${gameId}`}
+        backPath={teamId ? `/team/${teamId}` : `/instructor/${gameId}`}
+      />
       <div className="max-w-5xl mx-auto px-6 pb-6">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
@@ -289,10 +294,8 @@ export default function ParticipantDocumentsPage() {
 
             {/* Content */}
             <div className="p-6" style={{ color: '#1f2937' }}>
-              <div className="prose max-w-none">
-                <pre className="whitespace-pre-wrap font-sans text-gray-800">
-                  {selectedDoc.content}
-                </pre>
+              <div className="prose prose-lg max-w-none prose-headings:text-gray-800 prose-p:text-gray-700 prose-li:text-gray-700 prose-strong:text-gray-900">
+                <ReactMarkdown>{selectedDoc.content || ''}</ReactMarkdown>
               </div>
 
               {/* Mark as Read Button */}

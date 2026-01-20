@@ -130,7 +130,7 @@ export default function AIScenarioGeneratorPage() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <Navigation title="AI Scenario Generator" backPath={`/instructor/game/${gameId}`} />
+      <Navigation title="AI Scenario Generator" backPath={`/instructor/${gameId}`} homeUrl={`/instructor/${gameId}`} />
       <div className="max-w-7xl mx-auto px-6 pb-6">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">

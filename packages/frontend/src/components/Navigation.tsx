@@ -4,17 +4,21 @@ interface NavigationProps {
   title?: string;
   showBack?: boolean;
   backPath?: string;
+  homeUrl?: string;
   children?: React.ReactNode;
 }
 
-export default function Navigation({ title, showBack = true, backPath, children }: NavigationProps) {
+export default function Navigation({ title, showBack = true, backPath, homeUrl = '/', children }: NavigationProps) {
   const navigate = useNavigate();
 
   const handleBack = () => {
     if (backPath) {
       navigate(backPath);
-    } else {
+    } else if (window.history.length > 2) {
       navigate(-1);
+    } else {
+      // Fallback to home if no history
+      navigate(homeUrl);
     }
   };
 
@@ -43,7 +47,7 @@ export default function Navigation({ title, showBack = true, backPath, children 
           <div className="flex items-center gap-4">
             {children}
             <Link
-              to="/"
+              to={homeUrl}
               className="flex items-center gap-2 text-white hover:text-gray-200 transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
