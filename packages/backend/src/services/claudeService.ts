@@ -212,56 +212,28 @@ Each object should have these exact fields: title, description, learningObjectiv
 
       const teamList = teams.map(t => `- ${t.name} (${t.role})`).join('\n');
 
-      const prompt = `Generate comprehensive simulation documents for the following ITSM scenario:
+      const prompt = `Generate simulation documents for: ${gameName}
 
-**Game Name**: ${gameName}
-**Scenario Title**: ${scenario.title}
-**Description**: ${scenario.description}
-**Learning Objectives**: ${scenario.learningObjectives.join(', ')}
-**Primary Domain**: ${scenario.primaryDomain}
-**Secondary Domains**: ${scenario.secondaryDomains.join(', ')}
-**Difficulty**: ${scenario.difficulty}/10
-**Duration**: ${duration} minutes
-**Rounds**: ${rounds}
+Scenario: ${scenario.title}
+Domains: ${scenario.primaryDomain}, ${scenario.secondaryDomains.join(', ')}
+Difficulty: ${scenario.difficulty}/10 | Duration: ${duration}min | Rounds: ${rounds}
+Teams: ${teamList}
 
-**Teams**:
-${teamList}
+Create these documents (be concise but complete):
 
-Generate the following documents in JSON format:
+1. Instructor Playbook (instructor_playbook): Timeline, incident injection plan, evaluation criteria, answer key
+2. General Briefing (general_briefing): Background, objectives, rules, timeline, resources
+3. Team Packets (team_packet, one per team): Role, resources, metrics, challenges
 
-1. **Instructor Playbook** (instructor_playbook)
-   - Detailed scenario timeline with specific timestamps
-   - Incident injection plan (what incidents to inject and when)
-   - Expected participant challenges and how to address them
-   - Evaluation criteria with specific metrics
-   - Answer key with best practices and optimal solutions
-   - Debriefing guide with key questions
+Use markdown. Keep content focused and practical.
 
-2. **General Briefing** (general_briefing)
-   - Scenario background that sets the context
-   - Mission objectives (what participants need to achieve)
-   - Rules of engagement
-   - Timeline and structure
-   - Available resources
+Return ONLY valid JSON array: [{documentType, title, content, visibility, teamId}]
+- visibility: "instructor_only" for playbook, "all_participants" for general, "team_only" for team packets
+- teamId: null for general, exact team name for team packets`;
 
-3. **Team Packets** (team_packet, one for EACH team)
-   - Team-specific role and responsibilities tailored to their expertise
-   - Available resources and budget
-   - Success metrics specific to their role
-   - Team-specific challenges they'll face
-   - Escalation procedures
-
-Use markdown formatting for all content. Be specific, detailed, and realistic.
-
-IMPORTANT: Return ONLY a valid JSON array of document objects. No explanations, no markdown code blocks.
-Each document object must have: documentType, title, content (markdown string), visibility, teamId (null for general docs, team ID string for team-specific).
-
-For team packets, create one document per team with teamId set to the team name (exact match from the list above).`;
-
-      // Use Sonnet for document generation as it produces better quality detailed content
-      // Haiku's 4096 token limit may be insufficient for multiple comprehensive documents
+      // Use configured model (Haiku) with 4096 max tokens
       const response = await this.client.messages.create({
-        model: 'claude-3-5-sonnet-20240620',
+        model: env.CLAUDE_MODEL,
         max_tokens: 4096,
         system: 'You are an expert ITSM instructor creating detailed simulation materials.',
         messages: [
