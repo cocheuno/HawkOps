@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { getPool } from '../config/database';
+import { ServiceHealthService } from '../services/serviceHealth.service';
 import logger from '../utils/logger';
 
 interface CreateGameRequest {
@@ -127,6 +128,70 @@ export class GameController {
     } catch (error) {
       logger.error('Error joining game:', error);
       return res.status(500).json({ error: 'Failed to join game' });
+    }
+  }
+  /**
+   * Get service health status for a game
+   * GET /api/games/:gameId/service-health
+   */
+  async getServiceHealth(req: Request, res: Response) {
+    const { gameId } = req.params;
+    const pool = getPool();
+    const serviceHealthService = new ServiceHealthService(pool);
+
+    try {
+      const health = await serviceHealthService.getServiceHealth(gameId);
+      return res.json(health);
+    } catch (error) {
+      logger.error('Error getting service health:', error);
+      return res.status(500).json({ error: 'Failed to get service health' });
+    }
+  }
+
+  /**
+   * Initialize services for a game
+   * POST /api/games/:gameId/initialize-services
+   */
+  async initializeServices(req: Request, res: Response) {
+    const { gameId } = req.params;
+    const { scenarioType } = req.body;
+    const pool = getPool();
+    const serviceHealthService = new ServiceHealthService(pool);
+
+    try {
+      await serviceHealthService.initializeServicesForGame(gameId, scenarioType || 'general_itsm');
+      const health = await serviceHealthService.getServiceHealth(gameId);
+      return res.json({
+        success: true,
+        message: `Initialized ${health.total} services`,
+        ...health,
+      });
+    } catch (error) {
+      logger.error('Error initializing services:', error);
+      return res.status(500).json({ error: 'Failed to initialize services' });
+    }
+  }
+
+  /**
+   * Refresh service statuses based on active incidents
+   * POST /api/games/:gameId/refresh-service-status
+   */
+  async refreshServiceStatus(req: Request, res: Response) {
+    const { gameId } = req.params;
+    const pool = getPool();
+    const serviceHealthService = new ServiceHealthService(pool);
+
+    try {
+      await serviceHealthService.updateServiceStatuses(gameId);
+      const health = await serviceHealthService.getServiceHealth(gameId);
+      return res.json({
+        success: true,
+        message: 'Service statuses refreshed',
+        ...health,
+      });
+    } catch (error) {
+      logger.error('Error refreshing service status:', error);
+      return res.status(500).json({ error: 'Failed to refresh service status' });
     }
   }
 }

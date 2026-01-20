@@ -62,3 +62,52 @@ input[type="range"]:focus {
 input[type="range"]:focus::-webkit-slider-thumb {
   box-shadow: 0 0 0 3px rgba(75, 46, 131, 0.3);
 }
+
+/* SLA Timer animations */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.02);
+  }
+}
+
+@keyframes urgentPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(220, 38, 38, 0);
+  }
+}
+
+.sla-breached {
+  animation: pulse 1s infinite, urgentPulse 1.5s infinite;
+}
+
+.sla-critical {
+  animation: pulse 1.5s infinite;
+}
+
+/* Service Health Dashboard styles */
+.service-status-operational {
+  background-color: #dcfce7;
+  border-color: #22c55e;
+  color: #16a34a;
+}
+
+.service-status-degraded {
+  background-color: #fef3c7;
+  border-color: #f59e0b;
+  color: #d97706;
+}
+
+.service-status-down {
+  background-color: #fef2f2;
+  border-color: #dc2626;
+  color: #dc2626;
+  animation: pulse 2s infinite;
+}
