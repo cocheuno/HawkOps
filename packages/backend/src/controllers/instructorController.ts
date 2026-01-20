@@ -67,13 +67,38 @@ export class InstructorController {
       );
       const incidentNumber = `INC${String(parseInt(incidentCountResult.rows[0].count) + 1).padStart(4, '0')}`;
 
-      // 5. Find Technical Operations team (they should receive incident by default)
-      const opsTeamResult = await pool.query(
-        `SELECT id FROM teams WHERE game_id = $1 AND role = $2`,
-        [gameId, 'Technical Operations']
-      );
+      // 5. Find the team suggested by AI (match by role or name)
+      let assignedToTeamId = null;
 
-      const assignedToTeamId = opsTeamResult.rows.length > 0 ? opsTeamResult.rows[0].id : null;
+      if (generatedIncident.assignToTeam) {
+        // Try to find team by role first, then by name
+        const teamResult = await pool.query(
+          `SELECT id FROM teams
+           WHERE game_id = $1 AND (role ILIKE $2 OR name ILIKE $2)
+           LIMIT 1`,
+          [gameId, `%${generatedIncident.assignToTeam}%`]
+        );
+
+        if (teamResult.rows.length > 0) {
+          assignedToTeamId = teamResult.rows[0].id;
+          logger.info(`AI assigned incident to team: ${generatedIncident.assignToTeam}`);
+        } else {
+          // Fallback to Technical Operations if suggested team not found
+          const fallbackResult = await pool.query(
+            `SELECT id FROM teams WHERE game_id = $1 AND role = $2`,
+            [gameId, 'Technical Operations']
+          );
+          assignedToTeamId = fallbackResult.rows.length > 0 ? fallbackResult.rows[0].id : null;
+          logger.warn(`Team "${generatedIncident.assignToTeam}" not found, falling back to Technical Operations`);
+        }
+      } else {
+        // Default to Technical Operations if AI didn't suggest a team
+        const opsTeamResult = await pool.query(
+          `SELECT id FROM teams WHERE game_id = $1 AND role = $2`,
+          [gameId, 'Technical Operations']
+        );
+        assignedToTeamId = opsTeamResult.rows.length > 0 ? opsTeamResult.rows[0].id : null;
+      }
 
       // 6. Insert incident into database
       const incidentResult = await pool.query(
@@ -145,6 +170,7 @@ export class InstructorController {
           aiGenerated: true,
           teachingPoint: generatedIncident.teachingPoint,
           aiReasoning: generatedIncident.aiReasoning,
+          assignedToTeam: generatedIncident.assignToTeam,
         },
       });
     } catch (error: any) {
