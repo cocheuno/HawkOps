@@ -267,9 +267,16 @@ export default function OperationsDashboardPage() {
 
       {/* Incident Detail Modal */}
       {selectedIncident && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="bg-hawk-purple text-white px-6 py-4 flex items-center justify-between rounded-t-lg">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+          onClick={() => setSelectedIncident(null)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+            style={{ backgroundColor: '#ffffff', position: 'relative', zIndex: 100 }}
+          >
+            <div className="bg-hawk-purple text-white px-6 py-4 flex items-center justify-between rounded-t-lg" style={{ backgroundColor: '#4B2E83' }}>
               <div>
                 <h2 className="text-2xl font-bold">{selectedIncident.incidentNumber}</h2>
                 <p className="text-sm opacity-90">{selectedIncident.title}</p>
@@ -301,7 +308,7 @@ export default function OperationsDashboardPage() {
               {/* Description */}
               <div>
                 <h3 className="font-semibold text-gray-800 mb-2">Description</h3>
-                <p className="text-gray-700 whitespace-pre-wrap">{selectedIncident.description}</p>
+                <p className="text-gray-700 whitespace-pre-wrap">{selectedIncident.description || 'No description available'}</p>
               </div>
 
               {/* SLA Info */}
