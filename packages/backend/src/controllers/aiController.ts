@@ -165,6 +165,25 @@ export class AIController {
         );
       }
 
+      // Save the scenario context to the game for AI incident generation
+      await pool.query(
+        `UPDATE games
+         SET scenario_context = $1::jsonb
+         WHERE id = $2::uuid`,
+        [
+          JSON.stringify({
+            title: scenario.title,
+            description: scenario.description,
+            learningObjectives: scenario.learningObjectives || [],
+            primaryDomain: scenario.primaryDomain,
+            secondaryDomains: scenario.secondaryDomains || [],
+            keyChallenges: scenario.keyChallenges || [],
+            difficulty: scenario.difficulty,
+          }),
+          gameId,
+        ]
+      );
+
       return res.json({
         success: true,
         documentsCreated: savedDocuments.length,
