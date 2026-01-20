@@ -64,19 +64,17 @@ export default function DocumentEditor({ gameId, document, onClose, onSave }: Do
 
   const fetchTeamsAndPlayers = async () => {
     try {
-      // Fetch teams
-      const teamsResponse = await axios.get(`${API_URL}/games/${gameId}`);
-      if (teamsResponse.data.game?.teams) {
-        setTeams(teamsResponse.data.game.teams);
+      // Fetch game state from instructor endpoint to get teams
+      const gameStateResponse = await axios.get(`${API_URL}/instructor/games/${gameId}/state`);
+      if (gameStateResponse.data.teams) {
+        setTeams(gameStateResponse.data.teams);
       }
 
-      // Fetch players
-      const playersResponse = await axios.get(`${API_URL}/games/${gameId}/players`);
-      if (playersResponse.data.players) {
-        setPlayers(playersResponse.data.players);
-      }
+      // Players endpoint might not exist yet - skip for now
+      // In future, add a proper players endpoint
     } catch (error) {
-      console.error('Error fetching teams/players:', error);
+      console.error('Error fetching teams:', error);
+      toast.error('Could not load teams. You can still create documents with other visibility options.');
     }
   };
 
@@ -189,6 +187,7 @@ export default function DocumentEditor({ gameId, document, onClose, onSave }: Do
                   if (template) handleTemplateSelect(template);
                 }}
                 className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                style={{ color: '#1f2937', backgroundColor: '#ffffff' }}
               >
                 <option value="">-- Select a template --</option>
                 {templates.map((template) => (
@@ -209,6 +208,7 @@ export default function DocumentEditor({ gameId, document, onClose, onSave }: Do
               value={documentType}
               onChange={(e) => setDocumentType(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              style={{ color: '#1f2937', backgroundColor: '#ffffff' }}
             >
               <option value="instructor_playbook">Instructor Playbook</option>
               <option value="general_briefing">General Briefing</option>
@@ -228,6 +228,7 @@ export default function DocumentEditor({ gameId, document, onClose, onSave }: Do
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g., General Briefing - ITSM Simulation"
               className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              style={{ color: '#1f2937', backgroundColor: '#ffffff' }}
             />
           </div>
 
@@ -252,6 +253,7 @@ export default function DocumentEditor({ gameId, document, onClose, onSave }: Do
               rows={15}
               placeholder="Document content (supports Markdown)..."
               className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono text-sm"
+              style={{ color: '#1f2937', backgroundColor: '#ffffff' }}
             />
             <p className="text-xs text-gray-500 mt-1">
               Supports Markdown formatting. Use placeholders like {`{{game_name}}, {{team_name}}`} for dynamic content.
@@ -267,6 +269,7 @@ export default function DocumentEditor({ gameId, document, onClose, onSave }: Do
               value={visibility}
               onChange={(e) => setVisibility(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              style={{ color: '#1f2937', backgroundColor: '#ffffff' }}
             >
               <option value="instructor_only">Instructor Only</option>
               <option value="all_participants">All Participants</option>
@@ -285,6 +288,7 @@ export default function DocumentEditor({ gameId, document, onClose, onSave }: Do
                 value={teamId}
                 onChange={(e) => setTeamId(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                style={{ color: '#1f2937', backgroundColor: '#ffffff' }}
               >
                 <option value="">-- Select team --</option>
                 {teams.map((team) => (
@@ -306,6 +310,7 @@ export default function DocumentEditor({ gameId, document, onClose, onSave }: Do
                 value={playerId}
                 onChange={(e) => setPlayerId(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                style={{ color: '#1f2937', backgroundColor: '#ffffff' }}
               >
                 <option value="">-- Select player --</option>
                 {players.map((player) => (
@@ -340,6 +345,7 @@ export default function DocumentEditor({ gameId, document, onClose, onSave }: Do
                 onChange={(e) => setEstimatedReadTime(e.target.value)}
                 placeholder="e.g., 5"
                 className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                style={{ color: '#1f2937', backgroundColor: '#ffffff' }}
               />
             </div>
           </div>
@@ -353,6 +359,7 @@ export default function DocumentEditor({ gameId, document, onClose, onSave }: Do
               value={status}
               onChange={(e) => setStatus(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              style={{ color: '#1f2937', backgroundColor: '#ffffff' }}
             >
               <option value="draft">Draft (not visible to participants)</option>
               <option value="published">Published (visible to participants)</option>
