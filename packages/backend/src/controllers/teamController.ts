@@ -129,6 +129,15 @@ export class TeamController {
     const pool = getPool();
 
     try {
+      // Validate UUIDs
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(teamId) || !uuidRegex.test(incidentId)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid team ID or incident ID format',
+        });
+      }
+
       // Validate status
       const validStatuses = ['open', 'in_progress', 'resolved', 'closed'];
       if (!validStatuses.includes(status)) {
@@ -142,7 +151,7 @@ export class TeamController {
       const incidentResult = await pool.query(
         `SELECT game_id, assigned_to_team_id, status as current_status
          FROM incidents
-         WHERE id = $1::uuid`,
+         WHERE id = CAST($1 AS uuid)`,
         [incidentId]
       );
 
@@ -155,7 +164,8 @@ export class TeamController {
 
       const incident = incidentResult.rows[0];
 
-      if (incident.assigned_to_team_id !== teamId) {
+      // Convert UUIDs to string for comparison (PostgreSQL returns them as strings)
+      if (String(incident.assigned_to_team_id) !== String(teamId)) {
         return res.status(403).json({
           success: false,
           error: 'This incident is not assigned to your team',
@@ -167,7 +177,7 @@ export class TeamController {
         `UPDATE incidents
          SET status = $1, updated_at = NOW(),
              resolved_at = CASE WHEN $1 IN ('resolved', 'closed') THEN NOW() ELSE resolved_at END
-         WHERE id = $2::uuid
+         WHERE id = CAST($2 AS uuid)
          RETURNING *`,
         [status, incidentId]
       );
