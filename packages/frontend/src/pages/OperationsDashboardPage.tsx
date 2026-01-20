@@ -274,16 +274,17 @@ export default function OperationsDashboardPage() {
           <div
             className="bg-white rounded-lg shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
-            style={{ backgroundColor: '#ffffff', position: 'relative', zIndex: 100 }}
+            style={{ backgroundColor: '#ffffff', position: 'relative', zIndex: 100, color: '#1f2937' }}
           >
-            <div className="bg-hawk-purple text-white px-6 py-4 flex items-center justify-between rounded-t-lg" style={{ backgroundColor: '#4B2E83' }}>
+            <div className="bg-hawk-purple text-white px-6 py-4 flex items-center justify-between rounded-t-lg" style={{ backgroundColor: '#4B2E83', color: '#ffffff' }}>
               <div>
-                <h2 className="text-2xl font-bold">{selectedIncident.incidentNumber}</h2>
-                <p className="text-sm opacity-90">{selectedIncident.title}</p>
+                <h2 className="text-2xl font-bold" style={{ color: '#ffffff' }}>{selectedIncident.incidentNumber}</h2>
+                <p className="text-sm opacity-90" style={{ color: '#ffffff' }}>{selectedIncident.title}</p>
               </div>
               <button
                 onClick={() => setSelectedIncident(null)}
                 className="text-white hover:text-gray-200 transition-colors"
+                style={{ color: '#ffffff' }}
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -291,7 +292,7 @@ export default function OperationsDashboardPage() {
               </button>
             </div>
 
-            <div className="p-6 space-y-6">
+            <div className="p-6 space-y-6" style={{ color: '#1f2937' }}>
               {/* Status Badges */}
               <div className="flex gap-2 flex-wrap">
                 <span className={`px-3 py-1 rounded border font-semibold ${getPriorityColor(selectedIncident.priority)}`}>
