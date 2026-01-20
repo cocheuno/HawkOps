@@ -184,7 +184,7 @@ export class AIController {
    * Get generation history
    * GET /api/instructor/ai/generations
    */
-  async getGenerations(req: Request, res: Response) {
+  async getGenerations(_req: Request, res: Response) {
     const pool = getPool();
 
     try {
