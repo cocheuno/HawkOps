@@ -76,11 +76,13 @@ export default function OperationsDashboardPage() {
   const handleStatusChange = async (incidentId: string, newStatus: string) => {
     if (!teamId) return;
 
+    console.log('Attempting status update:', { teamId, incidentId, newStatus });
     setUpdating(true);
     try {
-      await axios.patch(`${API_URL}/teams/${teamId}/incidents/${incidentId}/status`, {
+      const response = await axios.patch(`${API_URL}/teams/${teamId}/incidents/${incidentId}/status`, {
         status: newStatus,
       });
+      console.log('Status update response:', response.data);
 
       toast.success(`Incident status updated to ${newStatus}`);
       await fetchDashboard();
@@ -91,7 +93,9 @@ export default function OperationsDashboardPage() {
       }
     } catch (error: any) {
       console.error('Error updating incident:', error);
-      toast.error(error.response?.data?.error || 'Failed to update incident');
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      toast.error(error.response?.data?.error || error.response?.data?.message || 'Failed to update incident');
     } finally {
       setUpdating(false);
     }
