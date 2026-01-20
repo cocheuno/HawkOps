@@ -67,10 +67,10 @@ export class InstructorController {
       );
       const incidentNumber = `INC${String(parseInt(incidentCountResult.rows[0].count) + 1).padStart(4, '0')}`;
 
-      // 5. Find Operations team (they should receive incident by default)
+      // 5. Find Technical Operations team (they should receive incident by default)
       const opsTeamResult = await pool.query(
         `SELECT id FROM teams WHERE game_id = $1 AND role = $2`,
-        [gameId, 'Operations']
+        [gameId, 'Technical Operations']
       );
 
       const assignedToTeamId = opsTeamResult.rows.length > 0 ? opsTeamResult.rows[0].id : null;
