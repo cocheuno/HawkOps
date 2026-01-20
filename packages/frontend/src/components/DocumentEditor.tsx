@@ -66,8 +66,13 @@ export default function DocumentEditor({ gameId, document, onClose, onSave }: Do
     try {
       // Fetch game state from instructor endpoint to get teams
       const gameStateResponse = await axios.get(`${API_URL}/instructor/games/${gameId}/state`);
+      console.log('Game state response:', gameStateResponse.data);
+
       if (gameStateResponse.data.teams) {
+        console.log('Teams loaded:', gameStateResponse.data.teams);
         setTeams(gameStateResponse.data.teams);
+      } else {
+        console.warn('No teams found in game state response');
       }
 
       // Players endpoint might not exist yet - skip for now
@@ -282,7 +287,7 @@ export default function DocumentEditor({ gameId, document, onClose, onSave }: Do
           {visibility === 'team_only' && (
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Select Team *
+                Select Team * {teams.length > 0 && <span className="text-xs text-gray-500">({teams.length} teams available)</span>}
               </label>
               <select
                 value={teamId}
@@ -297,6 +302,11 @@ export default function DocumentEditor({ gameId, document, onClose, onSave }: Do
                   </option>
                 ))}
               </select>
+              {teams.length === 0 && (
+                <p className="text-xs text-red-600 mt-1">
+                  No teams found. Please ensure teams were created for this game.
+                </p>
+              )}
             </div>
           )}
 
@@ -304,7 +314,7 @@ export default function DocumentEditor({ gameId, document, onClose, onSave }: Do
           {visibility === 'player_only' && (
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Select Player *
+                Select Player * {players.length > 0 && <span className="text-xs text-gray-500">({players.length} players available)</span>}
               </label>
               <select
                 value={playerId}
@@ -319,6 +329,11 @@ export default function DocumentEditor({ gameId, document, onClose, onSave }: Do
                   </option>
                 ))}
               </select>
+              {players.length === 0 && (
+                <p className="text-xs text-red-600 mt-1">
+                  No players found. Player-specific documents are not yet supported.
+                </p>
+              )}
             </div>
           )}
 
