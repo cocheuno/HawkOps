@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import axios from 'axios';
+import Navigation from '../components/Navigation';
 
 const API_URL = import.meta.env.PROD ? '/api' : 'http://localhost:3000/api';
 
@@ -155,8 +156,9 @@ export default function OperationsDashboardPage() {
   const { team, game, incidents, activeIncidentCount, technicalDebt } = dashboardData;
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gray-100">
+      <Navigation title={`${team.name} Dashboard`} showBack={false} />
+      <div className="max-w-7xl mx-auto px-6 pb-6">
         {/* Team Header */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <div className="flex justify-between items-start">
