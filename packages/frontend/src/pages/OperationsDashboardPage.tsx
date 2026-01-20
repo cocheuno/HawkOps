@@ -150,6 +150,9 @@ export default function OperationsDashboardPage() {
 
   const { team, game, incidents, activeIncidentCount, technicalDebt } = dashboardData;
 
+  // DEBUG: Log selected incident state every render
+  console.log('RENDER - selectedIncident:', selectedIncident);
+
   return (
     <div className="min-h-screen bg-gray-100 p-6">
       <div className="max-w-7xl mx-auto">
@@ -222,7 +225,12 @@ export default function OperationsDashboardPage() {
                   return (
                     <div
                       key={incident.id}
-                      onClick={() => setSelectedIncident(incident)}
+                      onClick={() => {
+                        console.log('INCIDENT CLICKED:', incident.incidentNumber, incident);
+                        console.log('Setting selectedIncident...');
+                        setSelectedIncident(incident);
+                        console.log('selectedIncident set');
+                      }}
                       className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors"
                     >
                       <div className="flex justify-between items-start mb-2">
