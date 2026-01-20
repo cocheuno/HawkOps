@@ -258,9 +258,11 @@ Each document object must have: documentType, title, content (markdown string), 
 
 For team packets, create one document per team with teamId set to the team name (exact match from the list above).`;
 
+      // Use Sonnet for document generation as it produces better quality detailed content
+      // Haiku's 4096 token limit may be insufficient for multiple comprehensive documents
       const response = await this.client.messages.create({
-        model: env.CLAUDE_MODEL,
-        max_tokens: 8000,
+        model: 'claude-3-5-sonnet-20241022',
+        max_tokens: 4096,
         system: 'You are an expert ITSM instructor creating detailed simulation materials.',
         messages: [
           {
