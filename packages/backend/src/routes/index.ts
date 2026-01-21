@@ -8,6 +8,7 @@ import aiRoutes from './aiRoutes';
 import pirRoutes from './pirRoutes';
 import communicationsRoutes from './communicationsRoutes';
 import competitiveRoutes from './competitiveRoutes';
+import realismRoutes from './realismRoutes';
 
 const router = Router();
 
@@ -33,6 +34,9 @@ router.use('/communications', communicationsRoutes);
 
 // Competitive routes (Achievements, Leaderboard, Challenges)
 router.use('/', competitiveRoutes);
+
+// Realism routes (Escalation, Dependencies, Change Requests, Resources)
+router.use('/', realismRoutes);
 
 // Document routes (includes both instructor and participant endpoints)
 router.use('/', documentRoutes);
