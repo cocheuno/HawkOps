@@ -7,6 +7,9 @@ import SLATimer from '../components/SLATimer';
 import ServiceHealthDashboard from '../components/ServiceHealthDashboard';
 import PIRForm from '../components/PIRForm';
 import StakeholderInbox from '../components/StakeholderInbox';
+import Leaderboard from '../components/Leaderboard';
+import AchievementsPanel from '../components/AchievementsPanel';
+import ChallengesPanel from '../components/ChallengesPanel';
 
 const API_URL = import.meta.env.PROD ? '/api' : 'http://localhost:3000/api';
 
@@ -81,6 +84,8 @@ export default function OperationsDashboardPage() {
   const [showServiceHealth, setShowServiceHealth] = useState(false);
   const [showPIRForm, setShowPIRForm] = useState<string | null>(null); // incidentId for PIR
   const [showStakeholderInbox, setShowStakeholderInbox] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [showAchievements, setShowAchievements] = useState(false);
 
   const fetchDashboard = async () => {
     try {
@@ -295,6 +300,85 @@ export default function OperationsDashboardPage() {
               services={serviceHealth.services}
               compact={false}
             />
+          </div>
+        )}
+
+        {/* Competitive Elements Row */}
+        {teamId && dashboardData?.game && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+            {/* Leaderboard Toggle */}
+            <div className="lg:col-span-2">
+              <div className="bg-white rounded-lg shadow">
+                <div
+                  className="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50"
+                  onClick={() => setShowLeaderboard(!showLeaderboard)}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">🏆</span>
+                    <div>
+                      <h3 className="font-semibold text-gray-800">Live Leaderboard</h3>
+                      <p className="text-sm text-gray-500">See how your team ranks</p>
+                    </div>
+                  </div>
+                  <span className="text-gray-400">{showLeaderboard ? '▼' : '▶'}</span>
+                </div>
+                {showLeaderboard && (
+                  <div className="border-t">
+                    <Leaderboard
+                      gameId={dashboardData.game.id}
+                      currentTeamId={teamId}
+                      compact={true}
+                      showActivity={false}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Challenges */}
+            <div>
+              <ChallengesPanel
+                gameId={dashboardData.game.id}
+                teamId={teamId}
+                compact={true}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Achievements Section */}
+        {teamId && dashboardData?.game && (
+          <div className="mb-6">
+            <div className="bg-white rounded-lg shadow">
+              <div
+                className="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50"
+                onClick={() => setShowAchievements(!showAchievements)}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">🎖️</span>
+                  <div>
+                    <h3 className="font-semibold text-gray-800">Team Achievements</h3>
+                    <p className="text-sm text-gray-500">Badges and milestones earned</p>
+                  </div>
+                </div>
+                <span className="text-gray-400">{showAchievements ? '▼' : '▶'}</span>
+              </div>
+              {showAchievements ? (
+                <AchievementsPanel
+                  teamId={teamId}
+                  gameId={dashboardData.game.id}
+                  compact={false}
+                />
+              ) : (
+                <div className="border-t p-4">
+                  <AchievementsPanel
+                    teamId={teamId}
+                    gameId={dashboardData.game.id}
+                    compact={true}
+                  />
+                </div>
+              )}
+            </div>
           </div>
         )}
 

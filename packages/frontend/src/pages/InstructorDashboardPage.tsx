@@ -4,6 +4,8 @@ import { toast } from 'react-hot-toast';
 import axios from 'axios';
 import Navigation from '../components/Navigation';
 import ServiceHealthDashboard from '../components/ServiceHealthDashboard';
+import Leaderboard from '../components/Leaderboard';
+import ChallengesPanel from '../components/ChallengesPanel';
 
 const API_URL = import.meta.env.PROD ? '/api' : 'http://localhost:3000/api';
 
@@ -377,6 +379,27 @@ export default function InstructorDashboardPage() {
             />
           </div>
         )}
+
+        {/* Leaderboard and Challenges Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          {/* Leaderboard */}
+          <div>
+            <Leaderboard
+              gameId={gameState.game.id}
+              compact={false}
+              showActivity={true}
+            />
+          </div>
+
+          {/* Challenges Panel */}
+          <div>
+            <ChallengesPanel
+              gameId={gameState.game.id}
+              isInstructor={true}
+              compact={false}
+            />
+          </div>
+        </div>
 
         {/* Active Incidents */}
         <div className="bg-white rounded-lg shadow mb-6">

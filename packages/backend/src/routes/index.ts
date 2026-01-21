@@ -7,6 +7,7 @@ import documentRoutes from './documentRoutes';
 import aiRoutes from './aiRoutes';
 import pirRoutes from './pirRoutes';
 import communicationsRoutes from './communicationsRoutes';
+import competitiveRoutes from './competitiveRoutes';
 
 const router = Router();
 
@@ -29,6 +30,9 @@ router.use('/pir', pirRoutes);
 
 // Communications routes (Stakeholder Communications)
 router.use('/communications', communicationsRoutes);
+
+// Competitive routes (Achievements, Leaderboard, Challenges)
+router.use('/', competitiveRoutes);
 
 // Document routes (includes both instructor and participant endpoints)
 router.use('/', documentRoutes);
