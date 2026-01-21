@@ -10,6 +10,7 @@ import EscalationPanel from '../components/EscalationPanel';
 import ChangeRequestPanel from '../components/ChangeRequestPanel';
 import ServiceDependencyGraph from '../components/ServiceDependencyGraph';
 import ResourceManagementPanel from '../components/ResourceManagementPanel';
+import AnalyticsDashboard from '../components/AnalyticsDashboard';
 
 const API_URL = import.meta.env.PROD ? '/api' : 'http://localhost:3000/api';
 
@@ -435,6 +436,14 @@ export default function InstructorDashboardPage() {
           <ServiceDependencyGraph
             gameId={gameState.game.id}
             compact={false}
+          />
+        </div>
+
+        {/* Phase 5: Analytics Dashboard */}
+        <div className="mb-6">
+          <AnalyticsDashboard
+            gameId={gameState.game.id}
+            isInstructor={true}
           />
         </div>
 

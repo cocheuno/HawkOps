@@ -9,6 +9,7 @@ import pirRoutes from './pirRoutes';
 import communicationsRoutes from './communicationsRoutes';
 import competitiveRoutes from './competitiveRoutes';
 import realismRoutes from './realismRoutes';
+import analyticsRoutes from './analyticsRoutes';
 
 const router = Router();
 
@@ -37,6 +38,9 @@ router.use('/', competitiveRoutes);
 
 // Realism routes (Escalation, Dependencies, Change Requests, Resources)
 router.use('/', realismRoutes);
+
+// Analytics routes (Metrics, Reports, Learning Progress)
+router.use('/', analyticsRoutes);
 
 // Document routes (includes both instructor and participant endpoints)
 router.use('/', documentRoutes);
