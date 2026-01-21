@@ -10,6 +10,10 @@ import StakeholderInbox from '../components/StakeholderInbox';
 import Leaderboard from '../components/Leaderboard';
 import AchievementsPanel from '../components/AchievementsPanel';
 import ChallengesPanel from '../components/ChallengesPanel';
+import EscalationPanel from '../components/EscalationPanel';
+import ChangeRequestPanel from '../components/ChangeRequestPanel';
+import ServiceDependencyGraph from '../components/ServiceDependencyGraph';
+import ResourceManagementPanel from '../components/ResourceManagementPanel';
 
 const API_URL = import.meta.env.PROD ? '/api' : 'http://localhost:3000/api';
 
@@ -86,6 +90,8 @@ export default function OperationsDashboardPage() {
   const [showStakeholderInbox, setShowStakeholderInbox] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
+  const [showChangeRequests, setShowChangeRequests] = useState(false);
+  const [showDependencies, setShowDependencies] = useState(false);
 
   const fetchDashboard = async () => {
     try {
@@ -400,6 +406,79 @@ export default function OperationsDashboardPage() {
               <StakeholderInbox teamId={teamId} compact={true} />
             )}
           </div>
+        )}
+
+        {/* Phase 4: Realism Elements */}
+        {teamId && dashboardData?.game && (
+          <>
+            {/* Escalation & Resources Row */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+              <EscalationPanel
+                gameId={dashboardData.game.id}
+                teamId={teamId}
+                compact={true}
+              />
+              <ResourceManagementPanel
+                gameId={dashboardData.game.id}
+                teamId={teamId}
+                compact={true}
+              />
+            </div>
+
+            {/* Change Requests & Dependencies */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+              {/* Change Requests */}
+              <div className="bg-white rounded-lg shadow">
+                <div
+                  className="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50"
+                  onClick={() => setShowChangeRequests(!showChangeRequests)}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">📝</span>
+                    <div>
+                      <h3 className="font-semibold text-gray-800">Change Requests</h3>
+                      <p className="text-sm text-gray-500">Submit and track planned changes</p>
+                    </div>
+                  </div>
+                  <span className="text-gray-400">{showChangeRequests ? '▼' : '▶'}</span>
+                </div>
+                {showChangeRequests && (
+                  <div className="border-t">
+                    <ChangeRequestPanel
+                      gameId={dashboardData.game.id}
+                      teamId={teamId}
+                      compact={false}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Service Dependencies */}
+              <div className="bg-white rounded-lg shadow">
+                <div
+                  className="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50"
+                  onClick={() => setShowDependencies(!showDependencies)}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">🔗</span>
+                    <div>
+                      <h3 className="font-semibold text-gray-800">Service Dependencies</h3>
+                      <p className="text-sm text-gray-500">View service relationships</p>
+                    </div>
+                  </div>
+                  <span className="text-gray-400">{showDependencies ? '▼' : '▶'}</span>
+                </div>
+                {showDependencies && (
+                  <div className="border-t">
+                    <ServiceDependencyGraph
+                      gameId={dashboardData.game.id}
+                      compact={false}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
         )}
 
         {/* Incident Queue */}

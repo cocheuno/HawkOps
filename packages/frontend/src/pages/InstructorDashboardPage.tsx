@@ -6,6 +6,11 @@ import Navigation from '../components/Navigation';
 import ServiceHealthDashboard from '../components/ServiceHealthDashboard';
 import Leaderboard from '../components/Leaderboard';
 import ChallengesPanel from '../components/ChallengesPanel';
+import EscalationPanel from '../components/EscalationPanel';
+import ChangeRequestPanel from '../components/ChangeRequestPanel';
+import ServiceDependencyGraph from '../components/ServiceDependencyGraph';
+import ResourceManagementPanel from '../components/ResourceManagementPanel';
+import AnalyticsDashboard from '../components/AnalyticsDashboard';
 
 const API_URL = import.meta.env.PROD ? '/api' : 'http://localhost:3000/api';
 
@@ -399,6 +404,47 @@ export default function InstructorDashboardPage() {
               compact={false}
             />
           </div>
+        </div>
+
+        {/* Phase 4: Realism Elements */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          {/* Escalation Management */}
+          <EscalationPanel
+            gameId={gameState.game.id}
+            isInstructor={true}
+            compact={false}
+          />
+
+          {/* Resource Management */}
+          <ResourceManagementPanel
+            gameId={gameState.game.id}
+            isInstructor={true}
+            compact={false}
+          />
+        </div>
+
+        {/* Change Requests and Service Dependencies */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          {/* Change Request Management */}
+          <ChangeRequestPanel
+            gameId={gameState.game.id}
+            isInstructor={true}
+            compact={false}
+          />
+
+          {/* Service Dependency Graph */}
+          <ServiceDependencyGraph
+            gameId={gameState.game.id}
+            compact={false}
+          />
+        </div>
+
+        {/* Phase 5: Analytics Dashboard */}
+        <div className="mb-6">
+          <AnalyticsDashboard
+            gameId={gameState.game.id}
+            isInstructor={true}
+          />
         </div>
 
         {/* Active Incidents */}
