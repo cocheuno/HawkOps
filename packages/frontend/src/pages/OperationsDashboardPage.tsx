@@ -5,6 +5,8 @@ import axios from 'axios';
 import Navigation from '../components/Navigation';
 import SLATimer from '../components/SLATimer';
 import ServiceHealthDashboard from '../components/ServiceHealthDashboard';
+import PIRForm from '../components/PIRForm';
+import StakeholderInbox from '../components/StakeholderInbox';
 
 const API_URL = import.meta.env.PROD ? '/api' : 'http://localhost:3000/api';
 
@@ -77,6 +79,8 @@ export default function OperationsDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [showServiceHealth, setShowServiceHealth] = useState(false);
+  const [showPIRForm, setShowPIRForm] = useState<string | null>(null); // incidentId for PIR
+  const [showStakeholderInbox, setShowStakeholderInbox] = useState(false);
 
   const fetchDashboard = async () => {
     try {
@@ -129,6 +133,30 @@ export default function OperationsDashboardPage() {
       // Close modal if incident was resolved/closed
       if (newStatus === 'resolved' || newStatus === 'closed') {
         setSelectedIncident(null);
+
+        // Prompt for PIR after resolution
+        if (newStatus === 'resolved') {
+          toast((t) => (
+            <div className="flex items-center gap-3">
+              <span>Incident resolved! Complete a Post-Incident Review?</span>
+              <button
+                onClick={() => {
+                  toast.dismiss(t.id);
+                  setShowPIRForm(incidentId);
+                }}
+                className="bg-hawk-purple text-white px-3 py-1 rounded text-sm hover:bg-purple-800"
+              >
+                Start PIR
+              </button>
+              <button
+                onClick={() => toast.dismiss(t.id)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                Later
+              </button>
+            </div>
+          ), { duration: 10000 });
+        }
       }
     } catch (error: any) {
       console.error('Error updating incident:', error);
@@ -267,6 +295,26 @@ export default function OperationsDashboardPage() {
               services={serviceHealth.services}
               compact={false}
             />
+          </div>
+        )}
+
+        {/* Stakeholder Communications Section */}
+        {teamId && (
+          <div className="mb-6">
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="text-xl font-bold text-gray-800">Stakeholder Communications</h2>
+              <button
+                onClick={() => setShowStakeholderInbox(!showStakeholderInbox)}
+                className="text-sm text-hawk-purple hover:text-purple-800 font-semibold"
+              >
+                {showStakeholderInbox ? 'Hide Inbox' : 'Show Full Inbox'}
+              </button>
+            </div>
+            {showStakeholderInbox ? (
+              <StakeholderInbox teamId={teamId} compact={false} />
+            ) : (
+              <StakeholderInbox teamId={teamId} compact={true} />
+            )}
           </div>
         )}
 
@@ -535,6 +583,19 @@ export default function OperationsDashboardPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* PIR Form Modal */}
+      {showPIRForm && teamId && (
+        <PIRForm
+          teamId={teamId}
+          incidentId={showPIRForm}
+          onClose={() => setShowPIRForm(null)}
+          onSubmitted={() => {
+            fetchDashboard();
+            toast.success('Post-Incident Review submitted successfully!');
+          }}
+        />
       )}
     </div>
   );
