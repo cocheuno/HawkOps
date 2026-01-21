@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { instructorController } from '../controllers/instructorController';
+import { stakeholderController } from '../controllers/stakeholderController';
 
 const router = Router();
 
@@ -21,6 +22,14 @@ router.post('/games/:gameId/check-sla', (req, res) =>
 // Get SLA status summary
 router.get('/games/:gameId/sla-status', (req, res) =>
   instructorController.getSLAStatus(req, res)
+);
+
+// Stakeholder communication routes
+router.post('/games/:gameId/stakeholder-comm', (req, res) =>
+  stakeholderController.generateCommunication(req, res)
+);
+router.get('/games/:gameId/communications', (req, res) =>
+  stakeholderController.getGameCommunications(req, res)
 );
 
 export default router;

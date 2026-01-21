@@ -5,6 +5,8 @@ import adminRoutes from './adminRoutes';
 import teamRoutes from './teamRoutes';
 import documentRoutes from './documentRoutes';
 import aiRoutes from './aiRoutes';
+import pirRoutes from './pirRoutes';
+import communicationsRoutes from './communicationsRoutes';
 
 const router = Router();
 
@@ -21,6 +23,12 @@ router.use('/instructor', instructorRoutes);
 
 // Team routes
 router.use('/teams', teamRoutes);
+
+// PIR routes (Post-Incident Reviews)
+router.use('/pir', pirRoutes);
+
+// Communications routes (Stakeholder Communications)
+router.use('/communications', communicationsRoutes);
 
 // Document routes (includes both instructor and participant endpoints)
 router.use('/', documentRoutes);
