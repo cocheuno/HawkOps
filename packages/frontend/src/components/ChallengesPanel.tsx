@@ -45,10 +45,11 @@ export default function ChallengesPanel({ gameId, teamId, compact = false, isIns
         ? `${API_URL}/games/${gameId}/challenges?teamId=${teamId}`
         : `${API_URL}/games/${gameId}/challenges/all`;
       const response = await axios.get(url);
-      setChallenges(response.data);
+      setChallenges(Array.isArray(response.data) ? response.data : []);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching challenges:', error);
+      setChallenges([]);
       setLoading(false);
     }
   };
