@@ -65,11 +65,13 @@ export default function ResourceManagementPanel({ gameId, teamId: _teamId, isIns
         axios.get(`${API_URL}/games/${gameId}/resources`),
         axios.get(`${API_URL}/games/${gameId}/resources/capacity`)
       ]);
-      setResources(resourcesRes.data);
-      setCapacityStatus(capacityRes.data);
+      setResources(Array.isArray(resourcesRes.data) ? resourcesRes.data : []);
+      setCapacityStatus(Array.isArray(capacityRes.data) ? capacityRes.data : []);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching resources:', error);
+      setResources([]);
+      setCapacityStatus([]);
       setLoading(false);
     }
   };

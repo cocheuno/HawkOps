@@ -37,10 +37,11 @@ export default function EscalationPanel({ gameId, teamId: _teamId, isInstructor 
   const fetchEscalations = async () => {
     try {
       const response = await axios.get(`${API_URL}/games/${gameId}/escalation/check`);
-      setEscalations(response.data);
+      setEscalations(Array.isArray(response.data) ? response.data : []);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching escalations:', error);
+      setEscalations([]);
       setLoading(false);
     }
   };

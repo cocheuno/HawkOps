@@ -69,7 +69,9 @@ export default function Leaderboard({ gameId, currentTeamId, compact = false, sh
   const fetchLeaderboard = async () => {
     try {
       const response = await axios.get(`${API_URL}/games/${gameId}/leaderboard`);
-      setLeaderboard(response.data);
+      if (response.data && response.data.rankings) {
+        setLeaderboard(response.data);
+      }
       setLoading(false);
     } catch (error) {
       console.error('Error fetching leaderboard:', error);
@@ -80,9 +82,10 @@ export default function Leaderboard({ gameId, currentTeamId, compact = false, sh
   const fetchActivity = async () => {
     try {
       const response = await axios.get(`${API_URL}/games/${gameId}/leaderboard/activity?limit=10`);
-      setActivity(response.data);
+      setActivity(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Error fetching activity:', error);
+      setActivity([]);
     }
   };
 

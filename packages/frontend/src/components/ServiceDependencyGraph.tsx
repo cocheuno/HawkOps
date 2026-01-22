@@ -52,10 +52,15 @@ export default function ServiceDependencyGraph({ gameId, compact = false }: Serv
   const fetchGraph = async () => {
     try {
       const response = await axios.get(`${API_URL}/games/${gameId}/dependencies/graph`);
-      setGraph(response.data);
+      if (response.data && response.data.services && response.data.edges) {
+        setGraph(response.data);
+      } else {
+        setGraph({ services: [], edges: [] });
+      }
       setLoading(false);
     } catch (error) {
       console.error('Error fetching dependency graph:', error);
+      setGraph({ services: [], edges: [] });
       setLoading(false);
     }
   };
@@ -63,10 +68,11 @@ export default function ServiceDependencyGraph({ gameId, compact = false }: Serv
   const simulateCascade = useCallback(async (serviceId: string) => {
     try {
       const response = await axios.get(`${API_URL}/services/${serviceId}/cascade-impact`);
-      setCascadeImpact(response.data);
+      setCascadeImpact(Array.isArray(response.data) ? response.data : []);
       setShowImpactSimulation(true);
     } catch (error) {
       console.error('Error simulating cascade:', error);
+      setCascadeImpact([]);
     }
   }, []);
 

@@ -78,11 +78,13 @@ export default function AnalyticsDashboard({ gameId, teamId: _teamId, isInstruct
         axios.get(`${API_URL}/games/${gameId}/analytics`),
         axios.get(`${API_URL}/games/${gameId}/analytics/comparison`)
       ]);
-      setDashboardData(dashboardRes.data);
-      setTeamComparison(comparisonRes.data);
+      setDashboardData(dashboardRes.data || null);
+      setTeamComparison(Array.isArray(comparisonRes.data) ? comparisonRes.data : []);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching analytics:', error);
+      setDashboardData(null);
+      setTeamComparison([]);
       setLoading(false);
     }
   };
