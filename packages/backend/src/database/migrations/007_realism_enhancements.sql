@@ -1,6 +1,23 @@
 -- Migration: 007_realism_enhancements.sql
 -- Description: Add escalation paths, service dependencies, change requests, and resource constraints
 
+-- Services table (for service dependency tracking)
+-- Note: This complements configuration_items which tracks CI health
+CREATE TABLE IF NOT EXISTS services (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    game_id UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    type VARCHAR(100) NOT NULL, -- application, database, infrastructure, network, etc.
+    status VARCHAR(50) DEFAULT 'operational', -- operational, degraded, down
+    criticality INTEGER DEFAULT 5, -- 1-10 scale
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_services_game ON services(game_id);
+CREATE INDEX IF NOT EXISTS idx_services_status ON services(status);
+
 -- Escalation paths for incidents
 CREATE TABLE IF NOT EXISTS escalation_rules (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
