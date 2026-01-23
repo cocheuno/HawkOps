@@ -120,6 +120,8 @@ export class ServiceHealthService {
   async updateServiceStatuses(gameId: string): Promise<void> {
     try {
       // Get all services with their active incident counts and severities
+      // Uses flexible matching: check if service name appears in incident's affected service
+      // or if incident's affected service appears in service name (for partial matches like "Database" -> "Primary Database")
       const servicesResult = await this.pool.query(
         `SELECT
            ci.id,
@@ -138,7 +140,10 @@ export class ServiceHealthService {
            i.game_id = ci.game_id
            AND (
              i.affected_ci_id = ci.id
-             OR i.ai_context->>'affectedService' ILIKE '%' || ci.name || '%'
+             OR LOWER(i.ai_context->>'affectedService') LIKE '%' || LOWER(ci.name) || '%'
+             OR LOWER(ci.name) LIKE '%' || LOWER(COALESCE(i.ai_context->>'affectedService', '')) || '%'
+             OR LOWER(i.title) LIKE '%' || LOWER(ci.name) || '%'
+             OR LOWER(i.description) LIKE '%' || LOWER(ci.name) || '%'
            )
          )
          WHERE ci.game_id = $1

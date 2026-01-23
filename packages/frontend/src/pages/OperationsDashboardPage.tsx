@@ -15,6 +15,7 @@ import ChangeRequestPanel from '../components/ChangeRequestPanel';
 import ServiceDependencyGraph from '../components/ServiceDependencyGraph';
 import ResourceManagementPanel from '../components/ResourceManagementPanel';
 import ImplementationPlanPanel from '../components/ImplementationPlanPanel';
+import CABWorkflowPanel from '../components/CABWorkflowPanel';
 
 const API_URL = import.meta.env.PROD ? '/api' : 'http://localhost:3000/api';
 
@@ -94,6 +95,8 @@ export default function OperationsDashboardPage() {
   const [showChangeRequests, setShowChangeRequests] = useState(false);
   const [showDependencies, setShowDependencies] = useState(false);
   const [showImplementationPlans, setShowImplementationPlans] = useState(false);
+  const [showCABWorkflow, setShowCABWorkflow] = useState(false);
+  const [allTeams, setAllTeams] = useState<Team[]>([]);
 
   const fetchDashboard = async () => {
     try {
@@ -101,9 +104,10 @@ export default function OperationsDashboardPage() {
       setDashboardData(response.data);
       setLoading(false);
 
-      // Fetch service health if we have the game ID
+      // Fetch service health and all teams if we have the game ID
       if (response.data.game?.id) {
         fetchServiceHealth(response.data.game.id);
+        fetchAllTeams(response.data.game.id);
       }
     } catch (error: any) {
       console.error('Error fetching dashboard:', error);
@@ -119,6 +123,16 @@ export default function OperationsDashboardPage() {
     } catch (error: any) {
       console.error('Error fetching service health:', error);
       // Don't show error toast, service health is optional
+    }
+  };
+
+  const fetchAllTeams = async (gameId: string) => {
+    try {
+      const response = await axios.get(`${API_URL}/games/${gameId}`);
+      setAllTeams(response.data.teams || []);
+    } catch (error: any) {
+      console.error('Error fetching teams:', error);
+      // Don't show error toast, teams list is for CAB workflow
     }
   };
 
@@ -508,6 +522,36 @@ export default function OperationsDashboardPage() {
                         title: i.title,
                         status: i.status,
                       }))}
+                      compact={false}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* CAB Workflow Section */}
+            <div className="mb-6">
+              <div className="bg-white rounded-lg shadow">
+                <div
+                  className="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50"
+                  onClick={() => setShowCABWorkflow(!showCABWorkflow)}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">🏛️</span>
+                    <div>
+                      <h3 className="font-semibold text-gray-800">CAB Workflow</h3>
+                      <p className="text-sm text-gray-500">Change Advisory Board review and approvals</p>
+                    </div>
+                  </div>
+                  <span className="text-gray-400">{showCABWorkflow ? '▼' : '▶'}</span>
+                </div>
+                {showCABWorkflow && (
+                  <div className="border-t">
+                    <CABWorkflowPanel
+                      gameId={dashboardData.game.id}
+                      teamId={teamId}
+                      teams={allTeams}
+                      isCABTeam={team.role === 'Management/CAB' || team.name.toLowerCase().includes('cab')}
                       compact={false}
                     />
                   </div>

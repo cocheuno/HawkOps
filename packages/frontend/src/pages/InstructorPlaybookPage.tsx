@@ -8,13 +8,13 @@ const API_URL = import.meta.env.PROD ? '/api' : 'http://localhost:3000/api';
 
 interface PlaybookDocument {
   id: string;
-  documentType: string;
+  document_type: string;
   title: string;
   content: string;
   visibility: string;
   status: string;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export default function InstructorPlaybookPage() {
@@ -33,7 +33,7 @@ export default function InstructorPlaybookPage() {
         // Fetch playbook document (use instructor endpoint to get instructor-only docs)
         const response = await axios.get(`${API_URL}/instructor/games/${gameId}/documents`);
         const instructorPlaybook = response.data.documents.find(
-          (doc: PlaybookDocument) => doc.documentType === 'instructor_playbook'
+          (doc: PlaybookDocument) => doc.document_type === 'instructor_playbook'
         );
 
         if (instructorPlaybook) {
@@ -85,7 +85,7 @@ export default function InstructorPlaybookPage() {
                     {playbook.visibility.replace('_', ' ')}
                   </span>
                   <span>Status: {playbook.status}</span>
-                  <span>Created: {new Date(playbook.createdAt).toLocaleDateString()}</span>
+                  <span>Created: {new Date(playbook.created_at).toLocaleDateString()}</span>
                 </div>
               </div>
               <button
