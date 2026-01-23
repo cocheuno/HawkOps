@@ -328,3 +328,161 @@ export const getGameCapacityStatus = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Failed to fetch capacity status' });
   }
 };
+
+export const getGameResources = async (req: Request, res: Response) => {
+  try {
+    const { gameId } = req.params;
+    const pool = getPool();
+    const service = new ResourceManagementService(pool);
+    const resources = await service.getGameResources(gameId);
+    res.json(resources);
+  } catch (error: any) {
+    console.error('Error fetching game resources:', error);
+    res.status(500).json({ error: 'Failed to fetch game resources' });
+  }
+};
+
+export const getGameResourceCapacity = async (req: Request, res: Response) => {
+  try {
+    const { gameId } = req.params;
+    const pool = getPool();
+    const service = new ResourceManagementService(pool);
+    const capacityStatus = await service.getGameCapacityStatus(gameId);
+
+    // Transform to match frontend CapacityStatus interface
+    const capacity = capacityStatus.map((team: any) => ({
+      teamId: team.teamId,
+      teamName: team.teamName,
+      currentCapacity: team.availableResources,
+      maxCapacity: team.totalResources,
+      utilizationPercent: team.utilizationPercent,
+      status: team.isOverloaded ? 'overloaded' : team.utilizationPercent > 70 ? 'busy' : 'available',
+      activeIncidents: 0, // Will be populated below
+      activeChanges: 0
+    }));
+
+    // Get active incidents per team
+    for (const c of capacity) {
+      const incidentResult = await pool.query(
+        `SELECT COUNT(*) as count FROM incidents
+         WHERE assigned_team_id = $1 AND status NOT IN ('resolved', 'closed')`,
+        [c.teamId]
+      );
+      c.activeIncidents = parseInt(incidentResult.rows[0]?.count) || 0;
+
+      const changeResult = await pool.query(
+        `SELECT COUNT(*) as count FROM change_requests
+         WHERE (requested_by_team_id = $1 OR assigned_to_team_id = $1) AND status = 'in_progress'`,
+        [c.teamId]
+      );
+      c.activeChanges = parseInt(changeResult.rows[0]?.count) || 0;
+    }
+
+    res.json(capacity);
+  } catch (error: any) {
+    console.error('Error fetching resource capacity:', error);
+    res.status(500).json({ error: 'Failed to fetch resource capacity' });
+  }
+};
+
+// ==================== GAME INITIALIZATION ====================
+
+export const initializeGameRealism = async (req: Request, res: Response) => {
+  try {
+    const { gameId } = req.params;
+    const pool = getPool();
+
+    const results = {
+      services: 0,
+      escalationRules: 0,
+      resources: 0,
+      shifts: 0,
+      dependencies: 0
+    };
+
+    // 1. Initialize services (into services table for dependency tracking)
+    const servicesResult = await pool.query(
+      `SELECT COUNT(*) as count FROM services WHERE game_id = $1`,
+      [gameId]
+    );
+
+    if (parseInt(servicesResult.rows[0].count) === 0) {
+      const defaultServices = [
+        { name: 'Authentication Service', type: 'application', criticality: 10, description: 'User authentication and authorization' },
+        { name: 'Primary Database', type: 'database', criticality: 10, description: 'Main application database' },
+        { name: 'Web Application', type: 'application', criticality: 9, description: 'Customer-facing web application' },
+        { name: 'API Gateway', type: 'application', criticality: 9, description: 'Central API routing and management' },
+        { name: 'Email Service', type: 'application', criticality: 6, description: 'Email notification system' },
+        { name: 'Backup System', type: 'infrastructure', criticality: 7, description: 'Data backup and recovery' },
+        { name: 'Monitoring Service', type: 'application', criticality: 7, description: 'System monitoring and alerting' },
+        { name: 'CDN', type: 'network', criticality: 5, description: 'Content delivery network' },
+        { name: 'Storage System', type: 'storage', criticality: 8, description: 'File and object storage' },
+        { name: 'Security Gateway', type: 'security', criticality: 9, description: 'Security and firewall services' }
+      ];
+
+      for (const svc of defaultServices) {
+        await pool.query(
+          `INSERT INTO services (game_id, name, type, status, criticality, description)
+           VALUES ($1, $2, $3, 'operational', $4, $5)`,
+          [gameId, svc.name, svc.type, svc.criticality, svc.description]
+        );
+        results.services++;
+      }
+    }
+
+    // 2. Initialize escalation rules
+    const escResult = await pool.query(
+      `SELECT COUNT(*) as count FROM escalation_rules WHERE game_id = $1`,
+      [gameId]
+    );
+
+    if (parseInt(escResult.rows[0].count) === 0) {
+      const rules = [
+        { name: 'Critical P1 - 15 min', description: 'Escalate critical incidents after 15 minutes', priority: 'critical', time: 15, level: 1, roles: ['manager', 'lead'] },
+        { name: 'Critical P1 - 30 min', description: 'Major escalation for critical incidents after 30 minutes', priority: 'critical', time: 30, level: 2, roles: ['director', 'vp'] },
+        { name: 'High Priority - 30 min', description: 'Escalate high priority incidents after 30 minutes', priority: 'high', time: 30, level: 1, roles: ['manager'] },
+        { name: 'High Priority - 60 min', description: 'Major escalation for high priority incidents after 60 minutes', priority: 'high', time: 60, level: 2, roles: ['director'] },
+        { name: 'Medium Priority - 60 min', description: 'Escalate medium priority incidents after 60 minutes', priority: 'medium', time: 60, level: 1, roles: ['lead'] }
+      ];
+
+      for (const rule of rules) {
+        await pool.query(
+          `INSERT INTO escalation_rules (game_id, name, description, priority_trigger, time_threshold_minutes, escalation_level, notify_roles)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [gameId, rule.name, rule.description, rule.priority, rule.time, rule.level, rule.roles]
+        );
+        results.escalationRules++;
+      }
+    }
+
+    // 3. Initialize team resources for all teams
+    const teamsResult = await pool.query(
+      `SELECT id FROM teams WHERE game_id = $1`,
+      [gameId]
+    );
+
+    const resourceService = new ResourceManagementService(pool);
+    for (const team of teamsResult.rows) {
+      const count = await resourceService.initializeTeamResources(team.id);
+      results.resources += count;
+    }
+
+    // 4. Initialize shift schedules
+    const shiftsCount = await resourceService.initializeShiftSchedules(gameId);
+    results.shifts = shiftsCount;
+
+    // 5. Initialize service dependencies
+    const depService = new ServiceDependencyService(pool);
+    const depCount = await depService.initializeDefaultDependencies(gameId);
+    results.dependencies = depCount;
+
+    res.json({
+      success: true,
+      message: 'Game realism features initialized',
+      results
+    });
+  } catch (error: any) {
+    console.error('Error initializing game realism:', error);
+    res.status(500).json({ error: 'Failed to initialize game realism features' });
+  }
+};

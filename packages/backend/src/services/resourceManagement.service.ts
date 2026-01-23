@@ -58,6 +58,29 @@ export class ResourceManagementService {
   // ==================== TEAM RESOURCES ====================
 
   /**
+   * Get all resources for all teams in a game
+   */
+  async getGameResources(gameId: string): Promise<any[]> {
+    const result = await this.pool.query(
+      `SELECT tr.id, tr.team_id as "teamId", t.name as "teamName",
+              tr.total_capacity as "totalStaff", tr.available_capacity as "availableStaff",
+              COALESCE(
+                (SELECT COUNT(*) FROM resource_allocations ra WHERE ra.resource_id = tr.id AND ra.status = 'active'),
+                0
+              ) as "currentWorkload",
+              5 as "skillLevel",
+              10 as "maxConcurrentIncidents",
+              0 as "fatigueLevel"
+       FROM team_resources tr
+       JOIN teams t ON tr.team_id = t.id
+       WHERE t.game_id = $1 AND tr.resource_type = 'staff'
+       ORDER BY t.name`,
+      [gameId]
+    );
+    return result.rows;
+  }
+
+  /**
    * Get resources for a team
    */
   async getTeamResources(teamId: string): Promise<TeamResource[]> {

@@ -211,10 +211,45 @@ export const getAnalyticsDashboard = async (req: Request, res: Response) => {
     const snapshots = await analyticsService.getSnapshots(gameId, 20);
 
     // Get team comparison
-    const teamComparison = await analyticsService.getTeamComparison(gameId);
+    let teamComparison = [];
+    try {
+      teamComparison = await analyticsService.getTeamComparison(gameId);
+    } catch (e) {
+      console.error('Error getting team comparison:', e);
+    }
 
-    // Get latest snapshot metrics
-    const latestSnapshot = snapshots[0] || null;
+    // Get latest snapshot metrics or create a default state from current game data
+    let latestSnapshot: any = snapshots[0] || null;
+
+    // If no snapshots exist, generate current state from game data
+    if (!latestSnapshot) {
+      const gameDataResult = await pool.query(
+        `SELECT
+           COALESCE(SUM(t.score), 0) as total_score,
+           COUNT(DISTINCT i.id) FILTER (WHERE i.status NOT IN ('resolved', 'closed')) as total_incidents,
+           COUNT(DISTINCT i.id) FILTER (WHERE i.status IN ('resolved', 'closed')) as resolved_incidents,
+           COUNT(DISTINCT i.id) FILTER (WHERE i.sla_breached = TRUE) as breached_slas
+         FROM games g
+         LEFT JOIN teams t ON t.game_id = g.id
+         LEFT JOIN incidents i ON i.game_id = g.id
+         WHERE g.id = $1
+         GROUP BY g.id`,
+        [gameId]
+      );
+
+      if (gameDataResult.rows.length > 0) {
+        const gd = gameDataResult.rows[0];
+        latestSnapshot = {
+          totalScore: parseInt(gd.total_score) || 0,
+          systemHealthScore: 100, // Default health
+          totalIncidents: parseInt(gd.total_incidents) || 0,
+          resolvedIncidents: parseInt(gd.resolved_incidents) || 0,
+          breachedSlas: parseInt(gd.breached_slas) || 0,
+          avgResolutionTimeMinutes: null,
+          totalCostIncurred: 0
+        };
+      }
+    }
 
     // Calculate trends from snapshots
     const trends = {
