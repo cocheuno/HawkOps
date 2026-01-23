@@ -234,6 +234,35 @@ export const getChangeRequest = async (req: Request, res: Response) => {
   }
 };
 
+export const updateChangeRequest = async (req: Request, res: Response) => {
+  try {
+    const { changeId } = req.params;
+    const { title, description, riskLevel } = req.body;
+    const pool = getPool();
+
+    const result = await pool.query(
+      `UPDATE change_requests
+       SET title = COALESCE($1, title),
+           description = COALESCE($2, description),
+           risk_level = COALESCE($3, risk_level),
+           updated_at = NOW()
+       WHERE id = $4::uuid
+       RETURNING *`,
+      [title, description, riskLevel, changeId]
+    );
+
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: 'Change request not found' });
+      return;
+    }
+
+    res.json({ success: true, change: result.rows[0] });
+  } catch (error: any) {
+    console.error('Error updating change request:', error);
+    res.status(500).json({ error: 'Failed to update change request' });
+  }
+};
+
 export const approveChangeRequest = async (req: Request, res: Response) => {
   try {
     const { changeId } = req.params;

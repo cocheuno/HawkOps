@@ -65,8 +65,11 @@ export default function CABWorkflowPanel({
   const [loading, setLoading] = useState(true);
   const [selectedChange, setSelectedChange] = useState<ChangeRequest | null>(null);
   const [showSendForReview, setShowSendForReview] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editData, setEditData] = useState({ title: '', description: '', riskLevel: 'medium' });
   const [selectedReviewTeam, setSelectedReviewTeam] = useState('');
   const [reviewNotes, setReviewNotes] = useState('');
+  const [approvalNotes, setApprovalNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const fetchChanges = useCallback(async () => {
@@ -137,20 +140,49 @@ export default function CABWorkflowPanel({
     }
   };
 
-  const handleCABDecision = async (changeId: string, decision: 'approve' | 'reject', notes?: string) => {
+  const handleCABDecision = async (changeId: string, decision: 'approve' | 'reject') => {
+    if (!approvalNotes.trim() && decision === 'reject') {
+      toast.error('Please provide a reason for rejection');
+      return;
+    }
     setSubmitting(true);
     try {
       await axios.post(`${API_URL}/changes/${changeId}/cab-${decision}`, {
-        notes,
+        notes: approvalNotes,
       });
-      toast.success(`Change ${decision}d`);
+      toast.success(`Change request ${decision === 'approve' ? 'approved' : 'rejected'}`);
       setSelectedChange(null);
+      setApprovalNotes('');
       fetchChanges();
     } catch (error: any) {
       toast.error(error.response?.data?.error || `Failed to ${decision} change`);
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleEditChange = async (changeId: string) => {
+    setSubmitting(true);
+    try {
+      await axios.put(`${API_URL}/changes/${changeId}`, editData);
+      toast.success('Change request updated');
+      setIsEditing(false);
+      setSelectedChange((prev) => prev ? { ...prev, ...editData } : null);
+      fetchChanges();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to update change request');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const startEditing = (change: ChangeRequest) => {
+    setEditData({
+      title: change.title,
+      description: change.description,
+      riskLevel: change.riskLevel,
+    });
+    setIsEditing(true);
   };
 
   if (loading) {
@@ -307,100 +339,185 @@ export default function CABWorkflowPanel({
       {selectedChange && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
-          onClick={() => setSelectedChange(null)}
+          onClick={() => { setSelectedChange(null); setIsEditing(false); setApprovalNotes(''); }}
         >
           <div
             className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-4 border-b flex justify-between items-center bg-gray-50">
+            <div className="p-4 border-b flex justify-between items-center bg-purple-700 text-white">
               <div>
-                <span className="font-mono text-sm text-gray-500">{selectedChange.changeNumber}</span>
-                <h3 className="font-bold text-gray-800">{selectedChange.title}</h3>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-sm opacity-80">{selectedChange.changeNumber}</span>
+                  <span className={`text-xs px-2 py-0.5 rounded ${WORKFLOW_STATE_COLORS[selectedChange.workflowState]}`}>
+                    {WORKFLOW_STATE_LABELS[selectedChange.workflowState]}
+                  </span>
+                  {isEditing && <span className="text-xs px-2 py-0.5 rounded bg-yellow-500 text-yellow-900">Editing</span>}
+                </div>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={editData.title}
+                    onChange={(e) => setEditData({ ...editData, title: e.target.value })}
+                    className="text-xl font-bold mt-1 bg-purple-600 border border-purple-400 rounded px-2 py-1 w-full text-white"
+                  />
+                ) : (
+                  <h3 className="font-bold text-lg">{selectedChange.title}</h3>
+                )}
               </div>
-              <button onClick={() => setSelectedChange(null)} className="text-gray-400 hover:text-gray-600">
-                ✕
+              <button onClick={() => { setSelectedChange(null); setIsEditing(false); setApprovalNotes(''); }} className="text-white hover:text-gray-200">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
             </div>
 
             <div className="p-4">
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <span className="text-xs text-gray-500">Type</span>
-                  <p className="font-medium">{selectedChange.changeType}</p>
+              {isEditing ? (
+                /* Edit Form */
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <textarea
+                      value={editData.description}
+                      onChange={(e) => setEditData({ ...editData, description: e.target.value })}
+                      rows={4}
+                      className="w-full border border-gray-300 rounded px-3 py-2"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Risk Level</label>
+                    <select
+                      value={editData.riskLevel}
+                      onChange={(e) => setEditData({ ...editData, riskLevel: e.target.value })}
+                      className="w-full border border-gray-300 rounded px-3 py-2"
+                    >
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                      <option value="critical">Critical</option>
+                    </select>
+                  </div>
+                  <div className="flex gap-3 pt-4 border-t">
+                    <button
+                      onClick={() => setIsEditing(false)}
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => handleEditChange(selectedChange.id)}
+                      disabled={submitting}
+                      className="flex-1 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400"
+                    >
+                      {submitting ? 'Saving...' : 'Save Changes'}
+                    </button>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-xs text-gray-500">Risk Level</span>
-                  <p className={`font-medium ${
-                    selectedChange.riskLevel === 'critical' ? 'text-red-600' :
-                    selectedChange.riskLevel === 'high' ? 'text-orange-600' :
-                    selectedChange.riskLevel === 'medium' ? 'text-yellow-600' :
-                    'text-green-600'
-                  }`}>
-                    {selectedChange.riskLevel.toUpperCase()}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-xs text-gray-500">Requested By</span>
-                  <p className="font-medium">{selectedChange.requestedByTeamName || 'Unknown'}</p>
-                </div>
-                <div>
-                  <span className="text-xs text-gray-500">Status</span>
-                  <p className={`font-medium px-2 py-0.5 rounded inline-block text-sm ${WORKFLOW_STATE_COLORS[selectedChange.workflowState]}`}>
-                    {WORKFLOW_STATE_LABELS[selectedChange.workflowState]}
-                  </p>
-                </div>
-              </div>
+              ) : (
+                /* View Mode */
+                <>
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <span className="text-xs text-gray-500">Type</span>
+                      <p className="font-medium">{selectedChange.changeType}</p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-gray-500">Risk Level</span>
+                      <p className={`font-medium ${
+                        selectedChange.riskLevel === 'critical' ? 'text-red-600' :
+                        selectedChange.riskLevel === 'high' ? 'text-orange-600' :
+                        selectedChange.riskLevel === 'medium' ? 'text-yellow-600' :
+                        'text-green-600'
+                      }`}>
+                        {selectedChange.riskLevel.toUpperCase()}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-gray-500">Requested By</span>
+                      <p className="font-medium">{selectedChange.requestedByTeamName || 'Unknown'}</p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-gray-500">Review Team</span>
+                      <p className="font-medium">{selectedChange.reviewTeamName || 'Not assigned'}</p>
+                    </div>
+                  </div>
 
-              <div className="mb-4">
-                <span className="text-xs text-gray-500">Description</span>
-                <p className="text-gray-700 mt-1">{selectedChange.description}</p>
-              </div>
+                  <div className="mb-4">
+                    <span className="text-xs text-gray-500">Description</span>
+                    <p className="text-gray-700 mt-1 whitespace-pre-wrap">{selectedChange.description}</p>
+                  </div>
 
-              {selectedChange.reviewNotes && (
-                <div className="mb-4 p-3 bg-purple-50 rounded">
-                  <span className="text-xs font-semibold text-purple-700">Technical Review Notes</span>
-                  <p className="text-sm text-purple-600 mt-1">{selectedChange.reviewNotes}</p>
-                  {selectedChange.reviewStatus && (
-                    <p className="text-xs text-purple-500 mt-2">
-                      Recommendation: {selectedChange.reviewStatus.replace(/_/g, ' ')}
-                    </p>
+                  {selectedChange.reviewNotes && (
+                    <div className="mb-4 p-3 bg-purple-50 rounded border border-purple-200">
+                      <span className="text-xs font-semibold text-purple-700">Technical Review Notes</span>
+                      <p className="text-sm text-purple-600 mt-1">{selectedChange.reviewNotes}</p>
+                      {selectedChange.reviewStatus && (
+                        <p className="text-xs text-purple-500 mt-2 font-semibold">
+                          Recommendation: {selectedChange.reviewStatus.replace(/_/g, ' ').toUpperCase()}
+                        </p>
+                      )}
+                    </div>
                   )}
-                </div>
-              )}
 
-              {selectedChange.approvalNotes && (
-                <div className="mb-4 p-3 bg-gray-50 rounded">
-                  <span className="text-xs font-semibold text-gray-700">Notes</span>
-                  <p className="text-sm text-gray-600 mt-1">{selectedChange.approvalNotes}</p>
-                </div>
-              )}
+                  {selectedChange.approvalNotes && (
+                    <div className="mb-4 p-3 bg-gray-50 rounded">
+                      <span className="text-xs font-semibold text-gray-700">CAB Notes</span>
+                      <p className="text-sm text-gray-600 mt-1">{selectedChange.approvalNotes}</p>
+                    </div>
+                  )}
 
-              {/* CAB Actions */}
-              {isCABTeam && selectedChange.workflowState === 'pending_cab' && !showSendForReview && (
-                <div className="flex gap-2 mt-4 pt-4 border-t">
-                  <button
-                    onClick={() => setShowSendForReview(true)}
-                    className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
-                  >
-                    Send for Technical Review
-                  </button>
-                  <button
-                    onClick={() => handleCABDecision(selectedChange.id, 'approve')}
-                    disabled={submitting}
-                    className="flex-1 bg-green-600 text-white py-2 rounded hover:bg-green-700 disabled:opacity-50"
-                  >
-                    Approve
-                  </button>
-                  <button
-                    onClick={() => handleCABDecision(selectedChange.id, 'reject')}
-                    disabled={submitting}
-                    className="flex-1 bg-red-600 text-white py-2 rounded hover:bg-red-700 disabled:opacity-50"
-                  >
-                    Reject
-                  </button>
-                </div>
-              )}
+                  {/* CAB Actions for pending_cab */}
+                  {isCABTeam && selectedChange.workflowState === 'pending_cab' && !showSendForReview && (
+                    <div className="mt-4 pt-4 border-t">
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+                        <p className="text-sm text-yellow-800 font-medium">Action Required: Review this change request</p>
+                        <p className="text-xs text-yellow-600 mt-1">You can edit, send for technical review, or make a decision directly.</p>
+                      </div>
+
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional for approval, required for rejection)</label>
+                        <textarea
+                          value={approvalNotes}
+                          onChange={(e) => setApprovalNotes(e.target.value)}
+                          className="w-full border border-gray-300 rounded px-3 py-2"
+                          rows={2}
+                          placeholder="Enter any notes or feedback..."
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 mb-2">
+                        <button
+                          onClick={() => startEditing(selectedChange)}
+                          className="bg-yellow-500 text-white py-2 rounded hover:bg-yellow-600"
+                        >
+                          Edit Change Request
+                        </button>
+                        <button
+                          onClick={() => setShowSendForReview(true)}
+                          className="bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+                        >
+                          Send for Technical Review
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => handleCABDecision(selectedChange.id, 'approve')}
+                          disabled={submitting}
+                          className="bg-green-600 text-white py-2 rounded hover:bg-green-700 disabled:opacity-50 font-semibold"
+                        >
+                          {submitting ? 'Processing...' : 'Approve'}
+                        </button>
+                        <button
+                          onClick={() => handleCABDecision(selectedChange.id, 'reject')}
+                          disabled={submitting}
+                          className="bg-red-600 text-white py-2 rounded hover:bg-red-700 disabled:opacity-50 font-semibold"
+                        >
+                          {submitting ? 'Processing...' : 'Reject'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
               {/* Send for Review Form */}
               {isCABTeam && showSendForReview && (
@@ -453,21 +570,39 @@ export default function CABWorkflowPanel({
 
               {/* CAB Actions for Review Complete */}
               {isCABTeam && selectedChange.workflowState === 'review_complete' && (
-                <div className="flex gap-2 mt-4 pt-4 border-t">
-                  <button
-                    onClick={() => handleCABDecision(selectedChange.id, 'approve')}
-                    disabled={submitting}
-                    className="flex-1 bg-green-600 text-white py-2 rounded hover:bg-green-700 disabled:opacity-50"
-                  >
-                    Approve Change
-                  </button>
-                  <button
-                    onClick={() => handleCABDecision(selectedChange.id, 'reject')}
-                    disabled={submitting}
-                    className="flex-1 bg-red-600 text-white py-2 rounded hover:bg-red-700 disabled:opacity-50"
-                  >
-                    Reject Change
-                  </button>
+                <div className="mt-4 pt-4 border-t">
+                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 mb-4">
+                    <p className="text-sm text-purple-800 font-medium">Technical Review Complete</p>
+                    <p className="text-xs text-purple-600 mt-1">The technical team has reviewed this change. Make your final decision.</p>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Decision Notes</label>
+                    <textarea
+                      value={approvalNotes}
+                      onChange={(e) => setApprovalNotes(e.target.value)}
+                      className="w-full border border-gray-300 rounded px-3 py-2"
+                      rows={2}
+                      placeholder="Enter approval or rejection notes..."
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => handleCABDecision(selectedChange.id, 'approve')}
+                      disabled={submitting}
+                      className="bg-green-600 text-white py-2 rounded hover:bg-green-700 disabled:opacity-50 font-semibold"
+                    >
+                      {submitting ? 'Processing...' : 'Approve Change'}
+                    </button>
+                    <button
+                      onClick={() => handleCABDecision(selectedChange.id, 'reject')}
+                      disabled={submitting}
+                      className="bg-red-600 text-white py-2 rounded hover:bg-red-700 disabled:opacity-50 font-semibold"
+                    >
+                      {submitting ? 'Processing...' : 'Reject Change'}
+                    </button>
+                  </div>
                 </div>
               )}
 
