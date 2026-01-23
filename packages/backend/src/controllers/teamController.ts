@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { getPool } from '../config/database';
+import { ServiceHealthService } from '../services/serviceHealth.service';
 import logger from '../utils/logger';
 
 /**
@@ -204,6 +205,10 @@ export class TeamController {
       );
 
       logger.info(`Incident ${incidentId} status updated to ${status} by team ${teamId}`);
+
+      // Update service statuses based on incident changes
+      const serviceHealthService = new ServiceHealthService(pool);
+      await serviceHealthService.updateServiceStatuses(incident.game_id);
 
       return res.json({
         success: true,

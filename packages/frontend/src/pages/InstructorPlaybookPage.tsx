@@ -31,7 +31,7 @@ export default function InstructorPlaybookPage() {
         setGameName(gameResponse.data.game.name);
 
         // Fetch playbook document (use instructor endpoint to get instructor-only docs)
-        const response = await axios.get(`${API_URL}/documents/instructor/games/${gameId}/documents`);
+        const response = await axios.get(`${API_URL}/instructor/games/${gameId}/documents`);
         const instructorPlaybook = response.data.documents.find(
           (doc: PlaybookDocument) => doc.documentType === 'instructor_playbook'
         );
