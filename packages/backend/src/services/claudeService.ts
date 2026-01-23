@@ -80,13 +80,19 @@ class ClaudeService {
    */
   async generateScenarioResponse(prompt: string, context?: string): Promise<string> {
     try {
+      // Check if API key is available
+      if (!env.ANTHROPIC_API_KEY || env.ANTHROPIC_API_KEY === 'dummy-key') {
+        logger.warn('Anthropic API key not configured, using fallback response');
+        throw new Error('API key not configured');
+      }
+
       const systemPrompt = `You are an AI assistant for HawkOps, an ITSM business simulation game.
 You help generate realistic IT service management scenarios, incidents, and responses.
 ${context ? `Context: ${context}` : ''}`;
 
       const message = await this.client.messages.create({
         model: env.CLAUDE_MODEL,
-        max_tokens: 1024,
+        max_tokens: 2048,
         system: systemPrompt,
         messages: [
           {
@@ -98,9 +104,9 @@ ${context ? `Context: ${context}` : ''}`;
 
       const textContent = message.content.find(block => block.type === 'text');
       return textContent && 'text' in textContent ? textContent.text : '';
-    } catch (error) {
-      logger.error('Error generating Claude response:', error);
-      throw new Error('Failed to generate AI response');
+    } catch (error: any) {
+      logger.error('Error generating Claude response:', error?.message || error);
+      throw new Error(`Failed to generate AI response: ${error?.message || 'Unknown error'}`);
     }
   }
 

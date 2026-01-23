@@ -310,27 +310,136 @@ Remember: Your feedback will be shown directly to students to help them improve.
     } catch (error: any) {
       logger.error('Error evaluating plan with AI:', error);
 
-      // Update plan with helpful error feedback
-      const errorEvaluation = {
-        score: 50,
-        decision: 'needs_revision',
-        strengths: ['Plan was submitted'],
-        suggestions: ['Please try submitting again or add more details to your plan'],
-        criticalIssues: [],
-        overallFeedback: 'We had trouble evaluating your plan automatically. Please review your plan and try submitting again. Make sure you have clear implementation steps and a description of what you plan to do.',
-        error: error.message
-      };
+      // Provide rule-based evaluation when AI fails
+      const fallbackEvaluation = this.generateFallbackEvaluation(plan);
 
       await pool.query(
         `UPDATE implementation_plans
-         SET status = 'ai_needs_revision',
-             ai_evaluation = $1::jsonb,
-             ai_evaluation_score = 50,
+         SET status = $1,
+             ai_evaluation = $2::jsonb,
+             ai_evaluation_score = $3,
+             ai_suggestions = $4,
              ai_reviewed_at = NOW()
-         WHERE id = $2::uuid`,
-        [JSON.stringify(errorEvaluation), planId]
+         WHERE id = $5::uuid`,
+        [
+          fallbackEvaluation.score >= 50 ? 'ai_approved' : 'ai_needs_revision',
+          JSON.stringify(fallbackEvaluation),
+          fallbackEvaluation.score,
+          fallbackEvaluation.suggestions,
+          planId
+        ]
       );
+
+      logger.info(`Plan ${planId} evaluated with fallback: score ${fallbackEvaluation.score}`);
     }
+  }
+
+  /**
+   * Generate a rule-based evaluation when AI is unavailable
+   */
+  private generateFallbackEvaluation(plan: any): any {
+    let score = 30; // Base score for submitting
+    const strengths: string[] = [];
+    const suggestions: string[] = [];
+    const criticalIssues: string[] = [];
+
+    // Check title (5 points)
+    if (plan.title && plan.title.length > 10) {
+      score += 5;
+      strengths.push('Clear, descriptive title');
+    } else {
+      suggestions.push('Make your title more descriptive - explain what the plan will fix');
+    }
+
+    // Check description (15 points)
+    if (plan.description && plan.description.length > 50) {
+      score += 15;
+      strengths.push('Good description of the approach');
+    } else if (plan.description && plan.description.length > 20) {
+      score += 8;
+      suggestions.push('Expand your description to explain HOW you will solve the problem, not just WHAT you will do');
+    } else {
+      suggestions.push('Add a detailed description explaining your approach to solving this incident');
+    }
+
+    // Check root cause analysis (10 points)
+    if (plan.root_cause_analysis && plan.root_cause_analysis.length > 30) {
+      score += 10;
+      strengths.push('Includes root cause analysis');
+    } else {
+      suggestions.push('Add a root cause analysis - explain WHY you think this problem occurred');
+    }
+
+    // Check implementation steps (20 points)
+    const steps = plan.implementation_steps || [];
+    if (steps.length >= 4) {
+      score += 20;
+      strengths.push(`Well-defined implementation steps (${steps.length} steps)`);
+    } else if (steps.length >= 2) {
+      score += 12;
+      suggestions.push('Add more implementation steps - break down the work into smaller, specific actions (aim for 4-6 steps)');
+    } else if (steps.length === 1) {
+      score += 5;
+      suggestions.push('Your plan needs more steps. Break down "' + (steps[0]?.substring(0, 30) || 'your step') + '..." into smaller, actionable tasks');
+    } else {
+      criticalIssues.push('No implementation steps provided - this is required');
+    }
+
+    // Check step quality (10 points)
+    const hasDetailedSteps = steps.some((s: any) => {
+      const stepText = typeof s === 'string' ? s : s.description || '';
+      return stepText.length > 20;
+    });
+    if (hasDetailedSteps) {
+      score += 10;
+      strengths.push('Implementation steps have good detail');
+    } else if (steps.length > 0) {
+      suggestions.push('Make your steps more specific. Instead of "Fix the server", try "1. SSH into server X, 2. Check logs in /var/log, 3. Restart service Y"');
+    }
+
+    // Check risk level and mitigation (10 points)
+    if (plan.mitigation_strategy && plan.mitigation_strategy.length > 20) {
+      score += 10;
+      strengths.push('Includes risk mitigation strategy');
+    } else {
+      suggestions.push('Add a mitigation strategy - what will you do to minimize risks during implementation?');
+    }
+
+    // Check rollback plan (10 points)
+    if (plan.rollback_plan && plan.rollback_plan.length > 20) {
+      score += 10;
+      strengths.push('Has a rollback plan');
+    } else {
+      suggestions.push('Add a rollback plan - what will you do if the fix doesn\'t work or makes things worse?');
+    }
+
+    // Ensure minimum strengths
+    if (strengths.length === 0) {
+      strengths.push('Plan was submitted for review');
+    }
+
+    // Cap score at 100
+    score = Math.min(score, 100);
+
+    // Generate overall feedback
+    let overallFeedback = '';
+    if (score >= 70) {
+      overallFeedback = `Great work! Your plan scores ${score}/100 and shows good ITSM practices. ${suggestions.length > 0 ? 'Consider these minor improvements: ' + suggestions[0] : 'You can proceed to create a Change Request for CAB approval.'}`;
+    } else if (score >= 50) {
+      overallFeedback = `Good effort! Your plan scores ${score}/100 and is ready for a Change Request, but could be improved. Focus on: ${suggestions.slice(0, 2).join('; ')}. These changes will help you in real-world ITSM scenarios.`;
+    } else {
+      overallFeedback = `Your plan scores ${score}/100 and needs more work before it can be approved. Key improvements needed: ${suggestions.slice(0, 2).join('; ')}. Click "Edit Plan" to make these changes, then resubmit.`;
+    }
+
+    return {
+      score,
+      decision: score >= 50 ? 'approve' : 'needs_revision',
+      strengths,
+      suggestions,
+      criticalIssues,
+      overallFeedback,
+      evaluationType: 'rule-based'
+    };
   }
 
   /**

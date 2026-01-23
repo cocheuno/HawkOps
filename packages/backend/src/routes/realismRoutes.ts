@@ -18,6 +18,7 @@ import {
   getChangeRequests,
   createChangeRequest,
   getChangeRequest,
+  updateChangeRequest,
   approveChangeRequest,
   implementChange,
   // CAB Workflow
@@ -61,6 +62,7 @@ router.post('/services/:serviceId/cascade-impact/apply', applyCascadeImpact);
 router.get('/games/:gameId/changes', getChangeRequests);
 router.post('/games/:gameId/changes', createChangeRequest);
 router.get('/changes/:changeId', getChangeRequest);
+router.put('/changes/:changeId', updateChangeRequest);
 router.post('/changes/:changeId/approve', approveChangeRequest);
 router.post('/changes/:changeId/implement', implementChange);
 
