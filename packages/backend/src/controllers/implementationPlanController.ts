@@ -563,6 +563,151 @@ Return your evaluation as JSON:
       });
     }
   }
+
+  /**
+   * Create a Change Request from an approved implementation plan
+   * POST /api/teams/:teamId/implementation-plans/:planId/create-change-request
+   */
+  async createChangeRequest(req: Request, res: Response) {
+    const { teamId, planId } = req.params;
+    const { gameId } = req.body;
+    const pool = getPool();
+
+    try {
+      // Get the implementation plan
+      const planResult = await pool.query(
+        `SELECT ip.*, i.title as incident_title, i.incident_number
+         FROM implementation_plans ip
+         LEFT JOIN incidents i ON ip.incident_id = i.id
+         WHERE ip.id = $1::uuid AND ip.team_id = $2::uuid`,
+        [planId, teamId]
+      );
+
+      if (planResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: 'Implementation plan not found',
+        });
+      }
+
+      const plan = planResult.rows[0];
+
+      // Check score requirement (must be >= 50)
+      const score = plan.ai_evaluation?.score || 0;
+      if (score < 50) {
+        return res.status(400).json({
+          success: false,
+          error: `Plans with scores under 50 cannot be converted to Change Requests. Current score: ${score}/100. Please revise your plan.`,
+        });
+      }
+
+      // Check status allows conversion
+      if (!['ai_approved', 'ai_needs_revision'].includes(plan.status)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Plan must be AI reviewed before creating a Change Request',
+        });
+      }
+
+      // Generate change number
+      const changeCountResult = await pool.query(
+        'SELECT COUNT(*) as count FROM change_requests WHERE game_id = $1::uuid',
+        [gameId]
+      );
+      const changeNumber = `CHG${String(parseInt(changeCountResult.rows[0].count) + 1).padStart(4, '0')}`;
+
+      // Determine risk level mapping
+      const riskMap: Record<string, string> = {
+        low: 'low',
+        medium: 'medium',
+        high: 'high',
+        critical: 'critical',
+      };
+      const riskLevel = riskMap[plan.risk_level] || 'medium';
+
+      // Find CAB team for this game
+      const cabResult = await pool.query(
+        `SELECT id FROM teams WHERE game_id = $1::uuid AND role = 'Management/CAB' LIMIT 1`,
+        [gameId]
+      );
+      const cabTeamId = cabResult.rows.length > 0 ? cabResult.rows[0].id : null;
+
+      // Create change request from the plan
+      const crResult = await pool.query(
+        `INSERT INTO change_requests
+         (game_id, change_number, title, description, change_type, risk_level,
+          affected_services, requested_by_team_id, status, implementation_plan,
+          rollback_plan, cab_team_id, workflow_state, implementation_time_minutes,
+          related_plan_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9, $10, $11, 'pending_cab', $12, $13)
+         RETURNING *`,
+        [
+          gameId,
+          changeNumber,
+          `Change Request: ${plan.title}`,
+          `${plan.description}\n\nRoot Cause Analysis: ${plan.root_cause_analysis || 'See implementation plan'}\n\nBased on Implementation Plan: ${plan.plan_number}${plan.incident_number ? ` (Incident ${plan.incident_number})` : ''}`,
+          'normal',
+          riskLevel,
+          plan.affected_systems || [],
+          teamId,
+          Array.isArray(plan.implementation_steps)
+            ? plan.implementation_steps.map((s: any) => typeof s === 'string' ? s : s.description).join('\n')
+            : plan.implementation_steps || '',
+          plan.rollback_plan || 'Revert to previous state',
+          cabTeamId,
+          (plan.estimated_effort_hours || 1) * 60,
+          planId,
+        ]
+      );
+
+      // Update the plan to link it to the change request
+      await pool.query(
+        `UPDATE implementation_plans
+         SET related_change_request_id = $1, status = 'change_requested'
+         WHERE id = $2::uuid`,
+        [crResult.rows[0].id, planId]
+      );
+
+      // Log game event
+      await pool.query(
+        `INSERT INTO game_events
+         (game_id, event_type, event_category, severity, event_data, actor_type)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          gameId,
+          'change_request_created',
+          'change_management',
+          'info',
+          JSON.stringify({
+            changeId: crResult.rows[0].id,
+            changeNumber,
+            fromPlan: plan.plan_number,
+            teamId,
+          }),
+          'team',
+        ]
+      );
+
+      return res.status(201).json({
+        success: true,
+        message: 'Change Request created and sent to CAB for review',
+        changeRequest: {
+          id: crResult.rows[0].id,
+          changeNumber,
+          title: crResult.rows[0].title,
+          status: crResult.rows[0].status,
+          workflowState: crResult.rows[0].workflow_state,
+        },
+      });
+    } catch (error: any) {
+      logger.error('Error creating change request from plan:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to create change request',
+        details: error.message,
+      });
+    }
+  }
 }
 
 export const implementationPlanController = new ImplementationPlanController();

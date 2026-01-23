@@ -10,6 +10,7 @@ import communicationsRoutes from './communicationsRoutes';
 import competitiveRoutes from './competitiveRoutes';
 import realismRoutes from './realismRoutes';
 import analyticsRoutes from './analyticsRoutes';
+import studentAuthRoutes from './studentAuthRoutes';
 
 const router = Router();
 
@@ -51,5 +52,8 @@ router.use('/', aiRoutes);
 // Admin routes (for database setup, etc.)
 // WARNING: Secure these endpoints in production!
 router.use('/admin', adminRoutes);
+
+// Student authentication routes (email-based access)
+router.use('/student', studentAuthRoutes);
 
 export default router;

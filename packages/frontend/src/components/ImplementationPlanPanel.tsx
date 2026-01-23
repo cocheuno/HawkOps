@@ -48,6 +48,7 @@ const STATUS_LABELS: Record<string, string> = {
   ai_approved: 'AI Approved',
   ai_needs_revision: 'Needs Revision',
   ai_rejected: 'AI Rejected',
+  change_requested: 'Change Requested',
   implementing: 'Implementing',
   completed: 'Completed',
 };
@@ -58,6 +59,7 @@ const STATUS_COLORS: Record<string, string> = {
   ai_approved: 'bg-green-100 text-green-700',
   ai_needs_revision: 'bg-yellow-100 text-yellow-700',
   ai_rejected: 'bg-red-100 text-red-700',
+  change_requested: 'bg-indigo-100 text-indigo-700',
   implementing: 'bg-purple-100 text-purple-700',
   completed: 'bg-gray-200 text-gray-800',
 };
@@ -147,6 +149,24 @@ export default function ImplementationPlanPanel({
     }
   };
 
+  const handleCreateChangeRequest = async (planId: string) => {
+    setSubmitting(true);
+    try {
+      const response = await axios.post(
+        `${API_URL}/teams/${teamId}/implementation-plans/${planId}/create-change-request`,
+        { gameId }
+      );
+      toast.success('Change Request created successfully! It has been sent to the CAB team for review.');
+      fetchPlans();
+      setSelectedPlan(null);
+      // Optionally redirect to change requests tab
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to create change request');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="bg-white rounded-lg shadow p-4">
@@ -230,6 +250,7 @@ export default function ImplementationPlanPanel({
             onSubmitForReview={handleSubmitForReview}
             onStartImplementation={handleStartImplementation}
             onCompleteImplementation={handleCompleteImplementation}
+            onCreateChangeRequest={handleCreateChangeRequest}
             submitting={submitting}
           />
         )}
@@ -351,6 +372,7 @@ export default function ImplementationPlanPanel({
           onSubmitForReview={handleSubmitForReview}
           onStartImplementation={handleStartImplementation}
           onCompleteImplementation={handleCompleteImplementation}
+          onCreateChangeRequest={handleCreateChangeRequest}
           submitting={submitting}
         />
       )}
@@ -621,6 +643,7 @@ function PlanDetailModal({
   onSubmitForReview,
   onStartImplementation,
   onCompleteImplementation,
+  onCreateChangeRequest,
   submitting,
 }: {
   plan: ImplementationPlan;
@@ -628,12 +651,21 @@ function PlanDetailModal({
   onSubmitForReview: (planId: string) => void;
   onStartImplementation: (planId: string) => void;
   onCompleteImplementation: (planId: string) => void;
+  onCreateChangeRequest: (planId: string) => void;
   submitting: boolean;
 }) {
   const canSubmit = plan.status === 'draft' || plan.status === 'ai_needs_revision';
   const canStart = plan.status === 'ai_approved';
   const canComplete = plan.status === 'implementing';
   const hasAIFeedback = plan.ai_evaluation;
+
+  // Score-based workflow:
+  // - Scores under 50: Must be revised (show warning, only allow resubmit)
+  // - Scores 50+: Can create change request for CAB approval
+  const score = plan.ai_evaluation_score || 0;
+  const canCreateChangeRequest = hasAIFeedback && score >= 50 &&
+    (plan.status === 'ai_approved' || plan.status === 'ai_needs_revision');
+  const mustRevise = hasAIFeedback && score < 50 && score > 0;
 
   return (
     <div
@@ -744,6 +776,31 @@ function PlanDetailModal({
             </div>
           )}
 
+          {/* Score-based workflow guidance */}
+          {mustRevise && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+              <div className="flex items-center gap-2 text-red-700 font-semibold mb-1">
+                <span>!</span> Plan Revision Required
+              </div>
+              <p className="text-red-600 text-sm">
+                Your plan scored {score}/100. Plans with scores under 50 must be revised before
+                they can be submitted as a Change Request. Please address the feedback and resubmit.
+              </p>
+            </div>
+          )}
+
+          {canCreateChangeRequest && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+              <div className="flex items-center gap-2 text-green-700 font-semibold mb-1">
+                Ready for Change Request
+              </div>
+              <p className="text-green-600 text-sm">
+                Your plan scored {score}/100 and is eligible to be converted to a Change Request
+                for CAB (Change Advisory Board) approval.
+              </p>
+            </div>
+          )}
+
           {/* Plan Details */}
           <div className="space-y-4">
             <div>
@@ -820,6 +877,16 @@ function PlanDetailModal({
                 className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400"
               >
                 {submitting ? 'Submitting...' : 'Submit for AI Review'}
+              </button>
+            )}
+
+            {canCreateChangeRequest && (
+              <button
+                onClick={() => onCreateChangeRequest(plan.id)}
+                disabled={submitting}
+                className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:bg-gray-400"
+              >
+                {submitting ? 'Creating...' : 'Create Change Request'}
               </button>
             )}
 

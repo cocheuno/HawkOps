@@ -42,6 +42,8 @@ interface GameContext {
   }>;
   technicalDebtLevel: number;
   activeIncidentCount: number;
+  instructorPlaybook: string | null;
+  scenarioBriefing: string | null;
 }
 
 interface GeneratedIncident {
@@ -159,6 +161,24 @@ export class AIGameMasterService {
         [gameId]
       );
 
+      // Get instructor playbook for scenario context alignment
+      const playbookResult = await client.query(
+        `SELECT content FROM simulation_documents
+         WHERE game_id = $1 AND document_type = 'instructor_playbook'
+         AND status = 'published'
+         ORDER BY created_at DESC LIMIT 1`,
+        [gameId]
+      );
+
+      // Get scenario briefing for additional context
+      const briefingResult = await client.query(
+        `SELECT content FROM simulation_documents
+         WHERE game_id = $1 AND document_type = 'scenario_briefing'
+         AND status = 'published'
+         ORDER BY created_at DESC LIMIT 1`,
+        [gameId]
+      );
+
       return {
         gameId,
         gameName: game.name,
@@ -179,6 +199,8 @@ export class AIGameMasterService {
         recentIncidents: incidentsResult.rows,
         technicalDebtLevel: parseInt(techDebtResult.rows[0].total_debt),
         activeIncidentCount: parseInt(activeIncidentsResult.rows[0].count),
+        instructorPlaybook: playbookResult.rows[0]?.content || null,
+        scenarioBriefing: briefingResult.rows[0]?.content || null,
       };
     } finally {
       client.release();
@@ -215,10 +237,13 @@ Your personality: ${context.aiPersonality}
 - "strict": High pressure, realistic enterprise conditions
 - "encouraging": Supportive, provides hints and guidance
 
-Team Roles and Responsibilities:
-- Service Desk: First point of contact, user communication, incident triage, ticket management
-- Technical Operations: Technical troubleshooting, system recovery, infrastructure, data restoration
-- Management/CAB: Strategic decisions, compliance, legal issues, public relations, resource allocation
+Team Roles and Responsibilities (CRITICAL - follow strictly):
+- Service Desk: First point of contact, user communication, incident triage, ticket management. Assign user-facing issues, login problems, service requests.
+- Technical Operations: Technical troubleshooting, system recovery, infrastructure, database issues, data restoration. Assign all technical/IT infrastructure problems.
+- Management/CAB: Strategic decisions, compliance, legal issues, public relations, resource allocation. DO NOT assign technical incidents to this team - they only review Change Requests.
+
+IMPORTANT: The assignToTeam field must be either "Service Desk" or "Technical Operations" for incident handling.
+The Management/CAB team NEVER receives incidents - they only approve changes via the CAB workflow.
 
 Output Format:
 Return ONLY a valid JSON object with this exact structure (no markdown, no explanation):
@@ -257,21 +282,48 @@ Learning Objectives:
 ${sc.learningObjectives?.map((obj) => `  - ${obj}`).join('\n') || '  - Not specified'}`;
     }
 
+    // Include playbook excerpts for context alignment (truncated for prompt size)
+    let playbookSection = '';
+    if (context.instructorPlaybook) {
+      const playbookExcerpt = context.instructorPlaybook.substring(0, 2000);
+      playbookSection = `
+INSTRUCTOR PLAYBOOK CONTEXT (Incidents should align with planned scenarios):
+${playbookExcerpt}${context.instructorPlaybook.length > 2000 ? '...[truncated]' : ''}
+`;
+    }
+
+    let briefingSection = '';
+    if (context.scenarioBriefing) {
+      const briefingExcerpt = context.scenarioBriefing.substring(0, 1500);
+      briefingSection = `
+SCENARIO BRIEFING:
+${briefingExcerpt}${context.scenarioBriefing.length > 1500 ? '...[truncated]' : ''}
+`;
+    }
+
+    // Filter operational teams for assignment suggestions
+    const operationalTeams = context.teams.filter(
+      (t) => !t.role.toLowerCase().includes('cab') && !t.role.toLowerCase().includes('management')
+    );
+
     return `Generate an IT incident for the current game state:
 
 Game: "${context.gameName}"
 ${scenarioSection}
+${playbookSection}
+${briefingSection}
 Round: ${context.currentRound} of ${context.maxRounds}
 Difficulty: ${context.difficultyLevel}/10
 Current Chaos Level: ${chaosLevel}/10
 
-Team Status:
-${context.teams
+Team Status (ONLY assign to Service Desk or Technical Operations):
+${operationalTeams
   .map(
     (t) =>
       `- ${t.name} (${t.role}): Score ${t.score}, Budget $${t.budgetRemaining.toLocaleString()}, Morale ${t.moraleLevel}%`
   )
   .join('\n')}
+(Note: Management/CAB team exists but does NOT handle incidents - only change requests)
 
 Recent Activity:
 - Active Incidents: ${context.activeIncidentCount}
@@ -292,6 +344,7 @@ Generate an incident that:
 4. Is directly relevant to the scenario context${context.scenarioContext ? ` ("${context.scenarioContext.title}")` : ''}
 5. Addresses one or more of the learning objectives
 6. Feels realistic for this specific scenario
+7. MUST be assigned to either "Service Desk" or "Technical Operations" (NOT Management/CAB)
 
 Return ONLY the JSON object, no other text.`;
   }

@@ -10,6 +10,7 @@ import ParticipantDocumentsPage from './pages/ParticipantDocumentsPage';
 import AIScenarioGeneratorPage from './pages/AIScenarioGeneratorPage';
 import InstructorPlaybookPage from './pages/InstructorPlaybookPage';
 import StudentManagementPage from './pages/StudentManagementPage';
+import StudentTeamPage from './pages/StudentTeamPage';
 import './App.css';
 
 function App() {
@@ -27,6 +28,8 @@ function App() {
         <Route path="/instructor/game/:gameId/students" element={<StudentManagementPage />} />
         <Route path="/game/:gameId/briefing" element={<ParticipantDocumentsPage />} />
         <Route path="/team/:teamId" element={<OperationsDashboardPage />} />
+        {/* Student-only team page (accessed via email link with token) */}
+        <Route path="/student/team/:teamId" element={<StudentTeamPage />} />
       </Routes>
     </BrowserRouter>
   );

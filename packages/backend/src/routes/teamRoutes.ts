@@ -76,4 +76,9 @@ router.post('/:teamId/implementation-plans/:planId/complete', (req, res) =>
   implementationPlanController.completeImplementation(req, res)
 );
 
+// Create change request from implementation plan (score >= 50)
+router.post('/:teamId/implementation-plans/:planId/create-change-request', (req, res) =>
+  implementationPlanController.createChangeRequest(req, res)
+);
+
 export default router;

@@ -70,9 +70,10 @@ export class InstructorController {
       const incidentNumber = `INC${String(parseInt(incidentCountResult.rows[0].count) + 1).padStart(4, '0')}`;
 
       // 5. Find the team to assign - use round-robin distribution to ensure fairness
+      // IMPORTANT: CAB/Management teams should NOT receive technical incidents
       let assignedToTeamId = null;
 
-      // Get all teams with their open incident counts
+      // Get all operational teams (exclude CAB/Management teams from incident assignment)
       const teamsWithCounts = await pool.query(
         `SELECT t.id, t.name, t.role,
                 COUNT(i.id) FILTER (WHERE i.status NOT IN ('resolved', 'closed')) as open_incidents
@@ -84,40 +85,59 @@ export class InstructorController {
         [gameId]
       );
 
-      if (teamsWithCounts.rows.length > 0) {
-        // If AI suggested a specific team, check if it's appropriate to use it
+      // Filter out CAB/Management teams - they handle change requests, not technical incidents
+      const isCABTeam = (team: any) =>
+        team.role?.toLowerCase().includes('cab') ||
+        team.role?.toLowerCase().includes('management') ||
+        team.name?.toLowerCase().includes('cab');
+
+      const operationalTeams = teamsWithCounts.rows.filter((t: any) => !isCABTeam(t));
+
+      if (operationalTeams.length > 0) {
+        // If AI suggested a specific team, check if it's appropriate
         if (generatedIncident.assignToTeam) {
-          // Try to find the suggested team
-          const suggestedTeam = teamsWithCounts.rows.find(
-            (t: any) =>
-              t.role.toLowerCase().includes(generatedIncident.assignToTeam.toLowerCase()) ||
-              t.name.toLowerCase().includes(generatedIncident.assignToTeam.toLowerCase())
-          );
+          // Don't assign to CAB team even if AI suggests it
+          const suggestedTeamName = generatedIncident.assignToTeam.toLowerCase();
+          const isCABSuggestion = suggestedTeamName.includes('cab') || suggestedTeamName.includes('management');
 
-          if (suggestedTeam) {
-            // Check if this team has significantly more incidents than the team with fewest
-            const minIncidents = parseInt(teamsWithCounts.rows[0].open_incidents);
-            const suggestedIncidents = parseInt(suggestedTeam.open_incidents);
+          if (!isCABSuggestion) {
+            // Try to find the suggested operational team
+            const suggestedTeam = operationalTeams.find(
+              (t: any) =>
+                t.role.toLowerCase().includes(suggestedTeamName) ||
+                t.name.toLowerCase().includes(suggestedTeamName)
+            );
 
-            // Only use suggested team if it doesn't have more than 2 extra incidents
-            if (suggestedIncidents <= minIncidents + 2) {
-              assignedToTeamId = suggestedTeam.id;
-              logger.info(`AI assigned incident to suggested team: ${suggestedTeam.name} (${suggestedTeam.open_incidents} open)`);
+            if (suggestedTeam) {
+              // Check workload fairness
+              const minIncidents = parseInt(operationalTeams[0].open_incidents);
+              const suggestedIncidents = parseInt(suggestedTeam.open_incidents);
+
+              if (suggestedIncidents <= minIncidents + 2) {
+                assignedToTeamId = suggestedTeam.id;
+                logger.info(`AI assigned incident to suggested team: ${suggestedTeam.name} (${suggestedTeam.open_incidents} open)`);
+              } else {
+                assignedToTeamId = operationalTeams[0].id;
+                logger.info(`Overriding AI suggestion for fairness. Assigned to: ${operationalTeams[0].name}`);
+              }
             } else {
-              // Override AI suggestion and assign to team with fewest incidents
-              assignedToTeamId = teamsWithCounts.rows[0].id;
-              logger.info(`Overriding AI suggestion for fairness. Assigned to: ${teamsWithCounts.rows[0].name} (${teamsWithCounts.rows[0].open_incidents} open) instead of ${suggestedTeam.name} (${suggestedIncidents} open)`);
+              assignedToTeamId = operationalTeams[0].id;
+              logger.info(`Team "${generatedIncident.assignToTeam}" not found, assigned to ${operationalTeams[0].name}`);
             }
           } else {
-            // Suggested team not found, assign to team with fewest incidents
-            assignedToTeamId = teamsWithCounts.rows[0].id;
-            logger.info(`Team "${generatedIncident.assignToTeam}" not found, assigned to ${teamsWithCounts.rows[0].name}`);
+            // AI incorrectly suggested CAB team - assign to operational team instead
+            assignedToTeamId = operationalTeams[0].id;
+            logger.info(`AI suggested CAB team but incidents go to operational teams. Assigned to: ${operationalTeams[0].name}`);
           }
         } else {
-          // No suggestion from AI, assign to team with fewest incidents
-          assignedToTeamId = teamsWithCounts.rows[0].id;
-          logger.info(`No team suggestion, assigned to ${teamsWithCounts.rows[0].name} (${teamsWithCounts.rows[0].open_incidents} open)`);
+          // No suggestion from AI, assign to operational team with fewest incidents
+          assignedToTeamId = operationalTeams[0].id;
+          logger.info(`No team suggestion, assigned to operational team: ${operationalTeams[0].name}`);
         }
+      } else if (teamsWithCounts.rows.length > 0) {
+        // Fallback: if somehow there are no operational teams, assign to any team
+        assignedToTeamId = teamsWithCounts.rows[0].id;
+        logger.warn(`No operational teams found, falling back to: ${teamsWithCounts.rows[0].name}`);
       }
 
       // 6. Insert incident into database
