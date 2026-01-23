@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { getPool } from '../config/database';
 import { AIGameMasterService } from '../services/aiGameMaster.service';
 import { SLAService } from '../services/sla.service';
+import { ServiceHealthService } from '../services/serviceHealth.service';
 import logger from '../utils/logger';
 
 /**
@@ -172,7 +173,12 @@ export class InstructorController {
 
       logger.info(`AI incident ${incidentNumber} injected successfully: "${generatedIncident.title}"`);
 
-      // 8. Return incident details
+      // 8. Update service statuses based on the new incident
+      const serviceHealthService = new ServiceHealthService(pool);
+      await serviceHealthService.updateServiceStatuses(gameId);
+      logger.info(`Service statuses updated after incident injection`);
+
+      // 9. Return incident details
       return res.status(201).json({
         success: true,
         message: 'AI incident generated and injected successfully',
