@@ -613,6 +613,8 @@ export default function CABWorkflowPanel({
                   submitting={submitting}
                 />
               )}
+                </>
+              )}
             </div>
           </div>
         </div>
