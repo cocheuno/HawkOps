@@ -10,6 +10,7 @@ interface ChangeRequest {
   riskLevel: 'low' | 'medium' | 'high' | 'critical';
   affectedServices: string[];
   requestedByTeamId: string | null;
+  requestedByTeamName?: string | null;
   assignedToTeamId: string | null;
   status: string;
   scheduledStart: Date | null;
@@ -21,6 +22,16 @@ interface ChangeRequest {
   testPlan: string | null;
   approvalNotes: string | null;
   failureReason: string | null;
+  // CAB workflow fields
+  cabTeamId: string | null;
+  reviewTeamId: string | null;
+  reviewTeamName?: string | null;
+  reviewStatus: string | null;
+  reviewNotes: string | null;
+  reviewedByPlayerId: string | null;
+  reviewedAt: Date | null;
+  implementationTimeMinutes: number | null;
+  workflowState: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -55,7 +66,7 @@ export class ChangeRequestService {
   }
 
   /**
-   * Create a new change request
+   * Create a new change request (auto-routes to CAB)
    */
   async createChangeRequest(
     gameId: string,
@@ -69,29 +80,173 @@ export class ChangeRequestService {
     scheduledEnd?: Date,
     implementationPlan?: string,
     rollbackPlan?: string,
-    testPlan?: string
+    testPlan?: string,
+    implementationTimeMinutes?: number
   ): Promise<ChangeRequest> {
     const changeNumber = await this.generateChangeNumber(gameId);
 
-    // Emergency changes are auto-approved
+    // Find the CAB team for this game
+    const cabResult = await this.pool.query(
+      `SELECT id FROM teams WHERE game_id = $1 AND role = 'Management/CAB' LIMIT 1`,
+      [gameId]
+    );
+    const cabTeamId = cabResult.rows.length > 0 ? cabResult.rows[0].id : null;
+
+    // Emergency changes are auto-approved but still go to CAB for notification
     const initialStatus = changeType === 'emergency' ? 'approved' : 'pending';
+    const initialWorkflowState = changeType === 'emergency' ? 'approved' : 'pending_cab';
 
     const result = await this.pool.query(
       `INSERT INTO change_requests
        (game_id, change_number, title, description, change_type, risk_level,
         affected_services, requested_by_team_id, status, scheduled_start, scheduled_end,
-        implementation_plan, rollback_plan, test_plan)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        implementation_plan, rollback_plan, test_plan, cab_team_id, workflow_state,
+        implementation_time_minutes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
        RETURNING *`,
       [
         gameId, changeNumber, title, description, changeType, riskLevel,
         affectedServices, requestedByTeamId, initialStatus,
         scheduledStart || null, scheduledEnd || null,
-        implementationPlan || null, rollbackPlan || null, testPlan || null
+        implementationPlan || null, rollbackPlan || null, testPlan || null,
+        cabTeamId, initialWorkflowState, implementationTimeMinutes || null
       ]
     );
 
     return this.mapChangeRequest(result.rows[0]);
+  }
+
+  /**
+   * CAB sends change request to another team for technical review
+   */
+  async sendForReview(changeId: string, reviewTeamId: string, cabNotes?: string): Promise<ChangeRequest> {
+    const result = await this.pool.query(
+      `UPDATE change_requests
+       SET workflow_state = 'under_review',
+           review_team_id = $2,
+           approval_notes = COALESCE(approval_notes || E'\n', '') || $3,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1 AND workflow_state = 'pending_cab'
+       RETURNING *`,
+      [changeId, reviewTeamId, cabNotes ? `CAB: ${cabNotes}` : '']
+    );
+
+    if (result.rows.length === 0) {
+      throw new Error('Change request not found or not in pending_cab state');
+    }
+
+    return this.mapChangeRequest(result.rows[0]);
+  }
+
+  /**
+   * Review team provides their recommendation
+   */
+  async submitReview(
+    changeId: string,
+    reviewStatus: 'recommend_approve' | 'recommend_reject' | 'needs_rework',
+    reviewNotes: string,
+    reviewerPlayerId?: string
+  ): Promise<ChangeRequest> {
+    const newWorkflowState = reviewStatus === 'needs_rework' ? 'pending_cab' : 'review_complete';
+
+    const result = await this.pool.query(
+      `UPDATE change_requests
+       SET workflow_state = $2,
+           review_status = $3,
+           review_notes = $4,
+           reviewed_by_player_id = $5,
+           reviewed_at = CURRENT_TIMESTAMP,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1 AND workflow_state = 'under_review'
+       RETURNING *`,
+      [changeId, newWorkflowState, reviewStatus, reviewNotes, reviewerPlayerId || null]
+    );
+
+    if (result.rows.length === 0) {
+      throw new Error('Change request not found or not under review');
+    }
+
+    return this.mapChangeRequest(result.rows[0]);
+  }
+
+  /**
+   * CAB approves the change request
+   */
+  async cabApprove(changeId: string, approverPlayerId?: string, notes?: string): Promise<ChangeRequest> {
+    const result = await this.pool.query(
+      `UPDATE change_requests
+       SET status = 'approved',
+           workflow_state = 'approved',
+           approved_by_player_id = $2,
+           approval_notes = COALESCE(approval_notes || E'\n', '') || $3,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1 AND workflow_state IN ('pending_cab', 'review_complete')
+       RETURNING *`,
+      [changeId, approverPlayerId || null, notes ? `CAB Approval: ${notes}` : 'CAB Approved']
+    );
+
+    if (result.rows.length === 0) {
+      throw new Error('Change request not found or not in approvable state');
+    }
+
+    return this.mapChangeRequest(result.rows[0]);
+  }
+
+  /**
+   * CAB rejects the change request
+   */
+  async cabReject(changeId: string, approverPlayerId?: string, reason?: string): Promise<ChangeRequest> {
+    const result = await this.pool.query(
+      `UPDATE change_requests
+       SET status = 'rejected',
+           workflow_state = 'rejected',
+           approved_by_player_id = $2,
+           approval_notes = COALESCE(approval_notes || E'\n', '') || $3,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1 AND workflow_state IN ('pending_cab', 'review_complete')
+       RETURNING *`,
+      [changeId, approverPlayerId || null, reason ? `CAB Rejected: ${reason}` : 'CAB Rejected']
+    );
+
+    if (result.rows.length === 0) {
+      throw new Error('Change request not found or not in rejectable state');
+    }
+
+    return this.mapChangeRequest(result.rows[0]);
+  }
+
+  /**
+   * Get change requests for CAB review
+   */
+  async getCABPendingChanges(gameId: string): Promise<ChangeRequest[]> {
+    const result = await this.pool.query(
+      `SELECT cr.*, rt.name as requested_by_name, revt.name as review_team_name
+       FROM change_requests cr
+       LEFT JOIN teams rt ON cr.requested_by_team_id = rt.id
+       LEFT JOIN teams revt ON cr.review_team_id = revt.id
+       WHERE cr.game_id = $1
+       AND cr.workflow_state IN ('pending_cab', 'review_complete')
+       ORDER BY cr.created_at ASC`,
+      [gameId]
+    );
+    return result.rows.map((row: any) => this.mapChangeRequest(row));
+  }
+
+  /**
+   * Get change requests under review by a specific team
+   */
+  async getTeamReviewChanges(gameId: string, teamId: string): Promise<ChangeRequest[]> {
+    const result = await this.pool.query(
+      `SELECT cr.*, rt.name as requested_by_name
+       FROM change_requests cr
+       LEFT JOIN teams rt ON cr.requested_by_team_id = rt.id
+       WHERE cr.game_id = $1
+       AND cr.review_team_id = $2
+       AND cr.workflow_state = 'under_review'
+       ORDER BY cr.created_at ASC`,
+      [gameId, teamId]
+    );
+    return result.rows.map((row: any) => this.mapChangeRequest(row));
   }
 
   /**
@@ -368,6 +523,7 @@ export class ChangeRequestService {
       riskLevel: row.risk_level,
       affectedServices: row.affected_services || [],
       requestedByTeamId: row.requested_by_team_id,
+      requestedByTeamName: row.requested_by_name || null,
       assignedToTeamId: row.assigned_to_team_id,
       status: row.status,
       scheduledStart: row.scheduled_start,
@@ -379,6 +535,16 @@ export class ChangeRequestService {
       testPlan: row.test_plan,
       approvalNotes: row.approval_notes,
       failureReason: row.failure_reason,
+      // CAB workflow fields
+      cabTeamId: row.cab_team_id || null,
+      reviewTeamId: row.review_team_id || null,
+      reviewTeamName: row.review_team_name || null,
+      reviewStatus: row.review_status || null,
+      reviewNotes: row.review_notes || null,
+      reviewedByPlayerId: row.reviewed_by_player_id || null,
+      reviewedAt: row.reviewed_at || null,
+      implementationTimeMinutes: row.implementation_time_minutes || null,
+      workflowState: row.workflow_state || 'pending',
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };

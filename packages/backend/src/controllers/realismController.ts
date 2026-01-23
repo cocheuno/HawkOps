@@ -261,6 +261,90 @@ export const implementChange = async (req: Request, res: Response) => {
   }
 };
 
+// ==================== CAB WORKFLOW ====================
+
+export const getCABPendingChanges = async (req: Request, res: Response) => {
+  try {
+    const { gameId } = req.params;
+    const pool = getPool();
+    const service = new ChangeRequestService(pool);
+    const changes = await service.getCABPendingChanges(gameId);
+    res.json({ success: true, changes });
+  } catch (error: any) {
+    console.error('Error fetching CAB pending changes:', error);
+    res.status(500).json({ error: 'Failed to fetch CAB pending changes' });
+  }
+};
+
+export const getTeamReviewChanges = async (req: Request, res: Response) => {
+  try {
+    const { gameId, teamId } = req.params;
+    const pool = getPool();
+    const service = new ChangeRequestService(pool);
+    const changes = await service.getTeamReviewChanges(gameId, teamId);
+    res.json({ success: true, changes });
+  } catch (error: any) {
+    console.error('Error fetching team review changes:', error);
+    res.status(500).json({ error: 'Failed to fetch team review changes' });
+  }
+};
+
+export const sendChangeForReview = async (req: Request, res: Response) => {
+  try {
+    const { changeId } = req.params;
+    const { reviewTeamId, notes } = req.body;
+    const pool = getPool();
+    const service = new ChangeRequestService(pool);
+    const change = await service.sendForReview(changeId, reviewTeamId, notes);
+    res.json({ success: true, change });
+  } catch (error: any) {
+    console.error('Error sending change for review:', error);
+    res.status(500).json({ error: error.message || 'Failed to send change for review' });
+  }
+};
+
+export const submitChangeReview = async (req: Request, res: Response) => {
+  try {
+    const { changeId } = req.params;
+    const { reviewStatus, reviewNotes, reviewerPlayerId } = req.body;
+    const pool = getPool();
+    const service = new ChangeRequestService(pool);
+    const change = await service.submitReview(changeId, reviewStatus, reviewNotes, reviewerPlayerId);
+    res.json({ success: true, change });
+  } catch (error: any) {
+    console.error('Error submitting change review:', error);
+    res.status(500).json({ error: error.message || 'Failed to submit change review' });
+  }
+};
+
+export const cabApproveChange = async (req: Request, res: Response) => {
+  try {
+    const { changeId } = req.params;
+    const { approverPlayerId, notes } = req.body;
+    const pool = getPool();
+    const service = new ChangeRequestService(pool);
+    const change = await service.cabApprove(changeId, approverPlayerId, notes);
+    res.json({ success: true, change });
+  } catch (error: any) {
+    console.error('Error CAB approving change:', error);
+    res.status(500).json({ error: error.message || 'Failed to approve change' });
+  }
+};
+
+export const cabRejectChange = async (req: Request, res: Response) => {
+  try {
+    const { changeId } = req.params;
+    const { approverPlayerId, reason } = req.body;
+    const pool = getPool();
+    const service = new ChangeRequestService(pool);
+    const change = await service.cabReject(changeId, approverPlayerId, reason);
+    res.json({ success: true, change });
+  } catch (error: any) {
+    console.error('Error CAB rejecting change:', error);
+    res.status(500).json({ error: error.message || 'Failed to reject change' });
+  }
+};
+
 // ==================== RESOURCES ====================
 
 export const getTeamResources = async (req: Request, res: Response) => {
