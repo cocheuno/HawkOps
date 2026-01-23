@@ -152,14 +152,13 @@ export default function ImplementationPlanPanel({
   const handleCreateChangeRequest = async (planId: string) => {
     setSubmitting(true);
     try {
-      const response = await axios.post(
+      await axios.post(
         `${API_URL}/teams/${teamId}/implementation-plans/${planId}/create-change-request`,
         { gameId }
       );
       toast.success('Change Request created successfully! It has been sent to the CAB team for review.');
       fetchPlans();
       setSelectedPlan(null);
-      // Optionally redirect to change requests tab
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Failed to create change request');
     } finally {
