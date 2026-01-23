@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { toast, Toaster } from 'react-hot-toast';
 import IncidentDetailModal from '../components/IncidentDetailModal';
@@ -46,7 +46,6 @@ interface Incident {
 export default function StudentTeamPage() {
   const { teamId } = useParams<{ teamId: string }>();
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -404,7 +403,7 @@ export default function StudentTeamPage() {
             aiContext: null,
           }}
           onClose={() => setSelectedIncident(null)}
-          onStatusChange={(status) => {
+          onStatusChange={(status: string) => {
             handleStatusChange(selectedIncident.id, status);
             setSelectedIncident(null);
           }}
