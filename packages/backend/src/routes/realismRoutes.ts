@@ -25,7 +25,11 @@ import {
   initializeTeamResources,
   getShiftSchedules,
   initializeShiftSchedules,
-  getGameCapacityStatus
+  getGameCapacityStatus,
+  getGameResources,
+  getGameResourceCapacity,
+  // Game Initialization
+  initializeGameRealism
 } from '../controllers/realismController';
 
 const router = Router();
@@ -59,5 +63,10 @@ router.post('/teams/:teamId/resources/initialize', initializeTeamResources);
 router.get('/games/:gameId/shifts', getShiftSchedules);
 router.post('/games/:gameId/shifts/initialize', initializeShiftSchedules);
 router.get('/games/:gameId/capacity', getGameCapacityStatus);
+router.get('/games/:gameId/resources', getGameResources);
+router.get('/games/:gameId/resources/capacity', getGameResourceCapacity);
+
+// ==================== GAME INITIALIZATION ====================
+router.post('/games/:gameId/initialize-realism', initializeGameRealism);
 
 export default router;

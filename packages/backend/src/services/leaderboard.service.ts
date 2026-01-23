@@ -68,13 +68,13 @@ export class LeaderboardService {
          (SELECT CASE
            WHEN COUNT(*) = 0 THEN 100
            ELSE ROUND(
-             (COUNT(*) FILTER (WHERE sla_deadline IS NULL OR resolved_at <= sla_deadline)::DECIMAL / COUNT(*)) * 100
+             (COUNT(*) FILTER (WHERE sla_breached = false OR sla_breached IS NULL)::DECIMAL / NULLIF(COUNT(*), 0)) * 100
            )
           END
           FROM incidents WHERE assigned_team_id = t.id AND game_id = $1 AND status IN ('resolved', 'closed')) as sla_compliance,
          -- Stakeholder satisfaction (avg response score)
          (SELECT COALESCE(AVG(ai_response_score), 0)
-          FROM stakeholder_communications WHERE team_id = t.id AND game_id = $1 AND status = 'responded') as stakeholder_satisfaction,
+          FROM stakeholder_communications WHERE assigned_to_team_id = t.id AND game_id = $1 AND status = 'responded') as stakeholder_satisfaction,
          -- PIR score average
          (SELECT COALESCE(AVG(ai_score), 0)
           FROM post_incident_reviews WHERE team_id = t.id AND game_id = $1 AND status = 'graded') as pir_score,

@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { getPool } from '../config/database';
 import { ServiceHealthService } from '../services/serviceHealth.service';
+import { ResourceManagementService } from '../services/resourceManagement.service';
+import { ServiceDependencyService } from '../services/serviceDependency.service';
 import logger from '../utils/logger';
 
 interface CreateGameRequest {
@@ -192,6 +194,144 @@ export class GameController {
     } catch (error) {
       logger.error('Error refreshing service status:', error);
       return res.status(500).json({ error: 'Failed to refresh service status' });
+    }
+  }
+
+  /**
+   * Start a game and initialize all realism features
+   * POST /api/games/:gameId/start
+   */
+  async startGame(req: Request, res: Response) {
+    const { gameId } = req.params;
+    const pool = getPool();
+
+    try {
+      // Check game exists and is in lobby
+      const gameResult = await pool.query(
+        'SELECT id, status FROM games WHERE id = $1',
+        [gameId]
+      );
+
+      if (gameResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Game not found' });
+      }
+
+      const game = gameResult.rows[0];
+      if (game.status !== 'lobby') {
+        return res.status(400).json({ error: `Cannot start game. Current status: ${game.status}` });
+      }
+
+      const initResults = {
+        services: 0,
+        escalationRules: 0,
+        resources: 0,
+        shifts: 0,
+        dependencies: 0
+      };
+
+      // 1. Initialize services (into services table for dependency tracking)
+      const servicesResult = await pool.query(
+        `SELECT COUNT(*) as count FROM services WHERE game_id = $1`,
+        [gameId]
+      );
+
+      if (parseInt(servicesResult.rows[0].count) === 0) {
+        const defaultServices = [
+          { name: 'Authentication Service', type: 'application', criticality: 10, description: 'User authentication and authorization' },
+          { name: 'Primary Database', type: 'database', criticality: 10, description: 'Main application database' },
+          { name: 'Web Application', type: 'application', criticality: 9, description: 'Customer-facing web application' },
+          { name: 'API Gateway', type: 'application', criticality: 9, description: 'Central API routing and management' },
+          { name: 'Email Service', type: 'application', criticality: 6, description: 'Email notification system' },
+          { name: 'Backup System', type: 'infrastructure', criticality: 7, description: 'Data backup and recovery' },
+          { name: 'Monitoring Service', type: 'application', criticality: 7, description: 'System monitoring and alerting' },
+          { name: 'CDN', type: 'network', criticality: 5, description: 'Content delivery network' },
+          { name: 'Storage System', type: 'storage', criticality: 8, description: 'File and object storage' },
+          { name: 'Security Gateway', type: 'security', criticality: 9, description: 'Security and firewall services' }
+        ];
+
+        for (const svc of defaultServices) {
+          await pool.query(
+            `INSERT INTO services (game_id, name, type, status, criticality, description)
+             VALUES ($1, $2, $3, 'operational', $4, $5)`,
+            [gameId, svc.name, svc.type, svc.criticality, svc.description]
+          );
+          initResults.services++;
+        }
+      }
+
+      // 2. Initialize escalation rules
+      const escResult = await pool.query(
+        `SELECT COUNT(*) as count FROM escalation_rules WHERE game_id = $1`,
+        [gameId]
+      );
+
+      if (parseInt(escResult.rows[0].count) === 0) {
+        const rules = [
+          { name: 'Critical P1 - 15 min', description: 'Escalate critical incidents after 15 minutes', priority: 'critical', time: 15, level: 1, roles: ['manager', 'lead'] },
+          { name: 'Critical P1 - 30 min', description: 'Major escalation for critical incidents after 30 minutes', priority: 'critical', time: 30, level: 2, roles: ['director', 'vp'] },
+          { name: 'High Priority - 30 min', description: 'Escalate high priority incidents after 30 minutes', priority: 'high', time: 30, level: 1, roles: ['manager'] },
+          { name: 'High Priority - 60 min', description: 'Major escalation for high priority incidents after 60 minutes', priority: 'high', time: 60, level: 2, roles: ['director'] },
+          { name: 'Medium Priority - 60 min', description: 'Escalate medium priority incidents after 60 minutes', priority: 'medium', time: 60, level: 1, roles: ['lead'] }
+        ];
+
+        for (const rule of rules) {
+          await pool.query(
+            `INSERT INTO escalation_rules (game_id, name, description, priority_trigger, time_threshold_minutes, escalation_level, notify_roles)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [gameId, rule.name, rule.description, rule.priority, rule.time, rule.level, rule.roles]
+          );
+          initResults.escalationRules++;
+        }
+      }
+
+      // 3. Initialize team resources for all teams
+      const teamsResult = await pool.query(
+        `SELECT id FROM teams WHERE game_id = $1`,
+        [gameId]
+      );
+
+      const resourceService = new ResourceManagementService(pool);
+      for (const team of teamsResult.rows) {
+        const count = await resourceService.initializeTeamResources(team.id);
+        initResults.resources += count;
+      }
+
+      // 4. Initialize shift schedules
+      const shiftsCount = await resourceService.initializeShiftSchedules(gameId);
+      initResults.shifts = shiftsCount;
+
+      // 5. Initialize service dependencies
+      const depService = new ServiceDependencyService(pool);
+      const depCount = await depService.initializeDefaultDependencies(gameId);
+      initResults.dependencies = depCount;
+
+      // 6. Also initialize configuration_items for service health tracking
+      const serviceHealthService = new ServiceHealthService(pool);
+      await serviceHealthService.initializeServicesForGame(gameId, 'general_itsm');
+
+      // 7. Update game status to active
+      await pool.query(
+        `UPDATE games SET status = 'active', started_at = NOW(), current_round = 1 WHERE id = $1`,
+        [gameId]
+      );
+
+      // 8. Log game start event
+      await pool.query(
+        `INSERT INTO game_events (game_id, event_type, event_data, severity)
+         VALUES ($1, 'game_started', $2, 'info')`,
+        [gameId, JSON.stringify({ initResults })]
+      );
+
+      logger.info(`Game ${gameId} started with initialization: ${JSON.stringify(initResults)}`);
+
+      return res.json({
+        success: true,
+        message: 'Game started successfully',
+        initResults
+      });
+    } catch (error) {
+      logger.error('Error starting game:', error);
+      return res.status(500).json({ error: 'Failed to start game' });
     }
   }
 }

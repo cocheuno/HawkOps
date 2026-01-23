@@ -729,6 +729,27 @@ export default function OperationsDashboardPage() {
                     {updating ? 'Updating...' : 'Close Incident'}
                   </button>
                 )}
+                {/* PIR Button - available for any incident */}
+                <button
+                  onClick={() => {
+                    setShowPIRForm(selectedIncident.id);
+                    setSelectedIncident(null);
+                  }}
+                  style={{
+                    padding: '12px 24px',
+                    backgroundColor: '#7c3aed',
+                    color: '#ffffff',
+                    fontWeight: '600',
+                    borderRadius: '8px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  📝 Post-Incident Review
+                </button>
                 <button
                   onClick={() => setSelectedIncident(null)}
                   style={{
