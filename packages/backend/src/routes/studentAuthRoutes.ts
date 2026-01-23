@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { verifyStudentToken, ensureOwnTeam } from '../middleware/studentAuth.middleware';
-import { getPool } from '../database/pool';
+import { getPool } from '../config/database';
 import logger from '../utils/logger';
 
 const router = Router();
@@ -9,7 +9,7 @@ const router = Router();
  * Verify student token and return team info
  * GET /api/student/verify
  */
-router.get('/verify', verifyStudentToken, async (req: Request, res: Response) => {
+router.get('/verify', verifyStudentToken, async (req: Request, res: Response): Promise<void> => {
   const pool = getPool();
 
   try {
@@ -30,10 +30,11 @@ router.get('/verify', verifyStudentToken, async (req: Request, res: Response) =>
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         error: 'Team not found',
       });
+      return;
     }
 
     const teamInfo = result.rows[0];
@@ -75,7 +76,7 @@ router.get(
   '/team/:teamId/dashboard',
   verifyStudentToken,
   ensureOwnTeam,
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response): Promise<void> => {
     const { teamId } = req.params;
     const pool = getPool();
 
@@ -90,7 +91,8 @@ router.get(
       );
 
       if (teamResult.rows.length === 0) {
-        return res.status(404).json({ error: 'Team not found' });
+        res.status(404).json({ error: 'Team not found' });
+        return;
       }
 
       const team = teamResult.rows[0];
@@ -136,7 +138,7 @@ router.get(
           status: team.game_status,
           currentRound: team.current_round,
         },
-        incidents: incidentsResult.rows.map(row => ({
+        incidents: incidentsResult.rows.map((row: any) => ({
           id: row.id,
           incidentNumber: row.incident_number,
           title: row.title,

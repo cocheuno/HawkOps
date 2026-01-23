@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { getPool } from '../database/pool';
+import { getPool } from '../config/database';
 import { env } from '../config/env';
 import logger from '../utils/logger';
 
@@ -37,7 +37,7 @@ export const verifyStudentToken = async (
   req: Request,
   res: Response,
   next: NextFunction
-) => {
+): Promise<void> => {
   // Get token from query param or authorization header
   let token = req.query.token as string;
 
@@ -49,11 +49,12 @@ export const verifyStudentToken = async (
   }
 
   if (!token) {
-    return res.status(401).json({
+    res.status(401).json({
       success: false,
       error: 'Access token is required',
       code: 'NO_TOKEN',
     });
+    return;
   }
 
   try {
@@ -61,11 +62,12 @@ export const verifyStudentToken = async (
     const decoded = jwt.verify(token, env.SESSION_SECRET) as StudentTokenPayload;
 
     if (decoded.type !== 'student_access') {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         error: 'Invalid token type',
         code: 'INVALID_TOKEN_TYPE',
       });
+      return;
     }
 
     // Verify the token matches the player's stored token
@@ -83,11 +85,12 @@ export const verifyStudentToken = async (
     );
 
     if (playerResult.rows.length === 0) {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         error: 'Invalid or expired access token',
         code: 'TOKEN_MISMATCH',
       });
+      return;
     }
 
     const player = playerResult.rows[0];
@@ -99,20 +102,22 @@ export const verifyStudentToken = async (
     );
 
     if (gameResult.rows.length === 0) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         error: 'Game not found',
         code: 'GAME_NOT_FOUND',
       });
+      return;
     }
 
     const gameStatus = gameResult.rows[0].status;
     if (gameStatus === 'completed' || gameStatus === 'archived') {
-      return res.status(403).json({
+      res.status(403).json({
         success: false,
         error: 'This game session has ended',
         code: 'GAME_ENDED',
       });
+      return;
     }
 
     // Update last accessed timestamp
@@ -136,23 +141,25 @@ export const verifyStudentToken = async (
     next();
   } catch (error: any) {
     if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         error: 'Access token has expired. Please contact your instructor for a new link.',
         code: 'TOKEN_EXPIRED',
       });
+      return;
     }
 
     if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         error: 'Invalid access token',
         code: 'INVALID_TOKEN',
       });
+      return;
     }
 
     logger.error('Error verifying student token:', error);
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       error: 'Failed to verify access token',
     });
@@ -166,22 +173,24 @@ export const ensureOwnTeam = (
   req: Request,
   res: Response,
   next: NextFunction
-) => {
+): void => {
   const { teamId } = req.params;
 
   if (!req.student) {
-    return res.status(401).json({
+    res.status(401).json({
       success: false,
       error: 'Student authentication required',
     });
+    return;
   }
 
   if (req.student.teamId !== teamId) {
-    return res.status(403).json({
+    res.status(403).json({
       success: false,
       error: 'You can only access your assigned team',
       code: 'TEAM_MISMATCH',
     });
+    return;
   }
 
   next();
