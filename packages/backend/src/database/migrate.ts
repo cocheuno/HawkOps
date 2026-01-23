@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import { readFileSync } from 'fs';
+import { readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import logger from '../utils/logger';
 import { env } from '../config/env';
@@ -16,14 +16,58 @@ export async function runMigrations(): Promise<void> {
   try {
     logger.info('Starting database migrations...');
 
-    // Read migration file
-    const migrationPath = join(__dirname, 'migrations', '001_ai_simulation_schema.sql');
-    const migrationSQL = readFileSync(migrationPath, 'utf-8');
+    // 1. Run base schema if it exists
+    try {
+      const schemaSQL = readFileSync(
+        join(__dirname, 'schema.sql'),
+        'utf-8'
+      );
+      await pool.query(schemaSQL);
+      logger.info('✓ Base schema executed successfully');
+    } catch (error: any) {
+      if (error.code === 'ENOENT') {
+        logger.info('No base schema.sql found, skipping');
+      } else if (error.code === '42710' || error.code === '42P07') {
+        logger.info('Base schema already exists, skipping');
+      } else {
+        throw error;
+      }
+    }
 
-    // Execute migration
-    await pool.query(migrationSQL);
+    // 2. Run all migration files in order
+    const migrationsDir = join(__dirname, 'migrations');
+    try {
+      const migrationFiles = readdirSync(migrationsDir)
+        .filter((file) => file.endsWith('.sql'))
+        .sort();
 
-    logger.info('✓ Migration 001_ai_simulation_schema.sql completed successfully');
+      logger.info(`Found ${migrationFiles.length} migration file(s)`);
+
+      for (const file of migrationFiles) {
+        logger.info(`Running migration: ${file}...`);
+        try {
+          const migrationSQL = readFileSync(join(migrationsDir, file), 'utf-8');
+          await pool.query(migrationSQL);
+          logger.info(`✓ Migration ${file} completed successfully`);
+        } catch (migrationError: any) {
+          // Ignore "already exists" errors for idempotent migrations
+          if (migrationError.code === '42710' || migrationError.code === '42P07' || migrationError.code === '23505') {
+            logger.info(`Migration ${file} skipped (objects already exist)`);
+          } else {
+            throw migrationError;
+          }
+        }
+      }
+
+      if (migrationFiles.length === 0) {
+        logger.info('No migration files found in migrations directory');
+      }
+    } catch (error: any) {
+      if (error.code !== 'ENOENT') {
+        throw error;
+      }
+      logger.info('No migrations directory found, skipping');
+    }
 
     logger.info('All migrations completed successfully!');
   } catch (error) {
