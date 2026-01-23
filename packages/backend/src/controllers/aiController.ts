@@ -166,9 +166,12 @@ export class AIController {
       }
 
       // Save the scenario context to the game for AI incident generation
+      // Also mark scenario as generated
       await pool.query(
         `UPDATE games
-         SET scenario_context = $1::jsonb
+         SET scenario_context = $1::jsonb,
+             scenario_generated = true,
+             scenario_generated_at = NOW()
          WHERE id = $2::uuid`,
         [
           JSON.stringify({

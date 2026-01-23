@@ -8,6 +8,8 @@ import OperationsDashboardPage from './pages/OperationsDashboardPage';
 import DocumentManagerPage from './pages/DocumentManagerPage';
 import ParticipantDocumentsPage from './pages/ParticipantDocumentsPage';
 import AIScenarioGeneratorPage from './pages/AIScenarioGeneratorPage';
+import InstructorPlaybookPage from './pages/InstructorPlaybookPage';
+import StudentManagementPage from './pages/StudentManagementPage';
 import './App.css';
 
 function App() {
@@ -21,6 +23,8 @@ function App() {
         <Route path="/instructor/:gameId" element={<InstructorDashboardPage />} />
         <Route path="/instructor/game/:gameId/documents" element={<DocumentManagerPage />} />
         <Route path="/instructor/game/:gameId/ai-generate" element={<AIScenarioGeneratorPage />} />
+        <Route path="/instructor/game/:gameId/playbook" element={<InstructorPlaybookPage />} />
+        <Route path="/instructor/game/:gameId/students" element={<StudentManagementPage />} />
         <Route path="/game/:gameId/briefing" element={<ParticipantDocumentsPage />} />
         <Route path="/team/:teamId" element={<OperationsDashboardPage />} />
       </Routes>

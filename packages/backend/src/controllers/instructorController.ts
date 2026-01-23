@@ -68,37 +68,55 @@ export class InstructorController {
       );
       const incidentNumber = `INC${String(parseInt(incidentCountResult.rows[0].count) + 1).padStart(4, '0')}`;
 
-      // 5. Find the team suggested by AI (match by role or name)
+      // 5. Find the team to assign - use round-robin distribution to ensure fairness
       let assignedToTeamId = null;
 
-      if (generatedIncident.assignToTeam) {
-        // Try to find team by role first, then by name
-        const teamResult = await pool.query(
-          `SELECT id FROM teams
-           WHERE game_id = $1 AND (role ILIKE $2 OR name ILIKE $2)
-           LIMIT 1`,
-          [gameId, `%${generatedIncident.assignToTeam}%`]
-        );
+      // Get all teams with their open incident counts
+      const teamsWithCounts = await pool.query(
+        `SELECT t.id, t.name, t.role,
+                COUNT(i.id) FILTER (WHERE i.status NOT IN ('resolved', 'closed')) as open_incidents
+         FROM teams t
+         LEFT JOIN incidents i ON i.assigned_to_team_id = t.id AND i.game_id = t.game_id
+         WHERE t.game_id = $1
+         GROUP BY t.id, t.name, t.role
+         ORDER BY open_incidents ASC, t.created_at ASC`,
+        [gameId]
+      );
 
-        if (teamResult.rows.length > 0) {
-          assignedToTeamId = teamResult.rows[0].id;
-          logger.info(`AI assigned incident to team: ${generatedIncident.assignToTeam}`);
-        } else {
-          // Fallback to Technical Operations if suggested team not found
-          const fallbackResult = await pool.query(
-            `SELECT id FROM teams WHERE game_id = $1 AND role = $2`,
-            [gameId, 'Technical Operations']
+      if (teamsWithCounts.rows.length > 0) {
+        // If AI suggested a specific team, check if it's appropriate to use it
+        if (generatedIncident.assignToTeam) {
+          // Try to find the suggested team
+          const suggestedTeam = teamsWithCounts.rows.find(
+            (t: any) =>
+              t.role.toLowerCase().includes(generatedIncident.assignToTeam.toLowerCase()) ||
+              t.name.toLowerCase().includes(generatedIncident.assignToTeam.toLowerCase())
           );
-          assignedToTeamId = fallbackResult.rows.length > 0 ? fallbackResult.rows[0].id : null;
-          logger.warn(`Team "${generatedIncident.assignToTeam}" not found, falling back to Technical Operations`);
+
+          if (suggestedTeam) {
+            // Check if this team has significantly more incidents than the team with fewest
+            const minIncidents = parseInt(teamsWithCounts.rows[0].open_incidents);
+            const suggestedIncidents = parseInt(suggestedTeam.open_incidents);
+
+            // Only use suggested team if it doesn't have more than 2 extra incidents
+            if (suggestedIncidents <= minIncidents + 2) {
+              assignedToTeamId = suggestedTeam.id;
+              logger.info(`AI assigned incident to suggested team: ${suggestedTeam.name} (${suggestedTeam.open_incidents} open)`);
+            } else {
+              // Override AI suggestion and assign to team with fewest incidents
+              assignedToTeamId = teamsWithCounts.rows[0].id;
+              logger.info(`Overriding AI suggestion for fairness. Assigned to: ${teamsWithCounts.rows[0].name} (${teamsWithCounts.rows[0].open_incidents} open) instead of ${suggestedTeam.name} (${suggestedIncidents} open)`);
+            }
+          } else {
+            // Suggested team not found, assign to team with fewest incidents
+            assignedToTeamId = teamsWithCounts.rows[0].id;
+            logger.info(`Team "${generatedIncident.assignToTeam}" not found, assigned to ${teamsWithCounts.rows[0].name}`);
+          }
+        } else {
+          // No suggestion from AI, assign to team with fewest incidents
+          assignedToTeamId = teamsWithCounts.rows[0].id;
+          logger.info(`No team suggestion, assigned to ${teamsWithCounts.rows[0].name} (${teamsWithCounts.rows[0].open_incidents} open)`);
         }
-      } else {
-        // Default to Technical Operations if AI didn't suggest a team
-        const opsTeamResult = await pool.query(
-          `SELECT id FROM teams WHERE game_id = $1 AND role = $2`,
-          [gameId, 'Technical Operations']
-        );
-        assignedToTeamId = opsTeamResult.rows.length > 0 ? opsTeamResult.rows[0].id : null;
       }
 
       // 6. Insert incident into database
@@ -215,7 +233,7 @@ export class InstructorController {
       // Get comprehensive game state
       const gameResult = await pool.query(
         `SELECT id, name, status, scenario_type, difficulty_level, current_round, max_rounds,
-                ai_personality, started_at, created_at
+                ai_personality, started_at, created_at, scenario_generated, scenario_generated_at
          FROM games WHERE id = $1`,
         [gameId]
       );
@@ -273,6 +291,8 @@ export class InstructorController {
           aiPersonality: game.ai_personality,
           startedAt: game.started_at,
           createdAt: game.created_at,
+          scenarioGenerated: game.scenario_generated || false,
+          scenarioGeneratedAt: game.scenario_generated_at,
         },
         teams: teamsResult.rows.map((t: any) => ({
           id: t.id,

@@ -1,8 +1,45 @@
 import { Router } from 'express';
 import { instructorController } from '../controllers/instructorController';
 import { stakeholderController } from '../controllers/stakeholderController';
+import { studentController } from '../controllers/studentController';
 
 const router = Router();
+
+// ============================================
+// STUDENT ROSTER MANAGEMENT
+// ============================================
+
+// Get all students (global roster)
+router.get('/students', (req, res) => studentController.getAllStudents(req, res));
+
+// Create a new student
+router.post('/students', (req, res) => studentController.createStudent(req, res));
+
+// Bulk create students
+router.post('/students/bulk', (req, res) => studentController.bulkCreateStudents(req, res));
+
+// Update a student
+router.put('/students/:studentId', (req, res) => studentController.updateStudent(req, res));
+
+// Delete (deactivate) a student
+router.delete('/students/:studentId', (req, res) => studentController.deleteStudent(req, res));
+
+// Get team assignments for a game
+router.get('/games/:gameId/team-assignments', (req, res) => studentController.getTeamAssignments(req, res));
+
+// Assign student to team
+router.post('/games/:gameId/teams/:teamId/assign-student', (req, res) =>
+  studentController.assignStudentToTeam(req, res)
+);
+
+// Remove student from team
+router.delete('/games/:gameId/teams/:teamId/players/:playerId', (req, res) =>
+  studentController.removeStudentFromTeam(req, res)
+);
+
+// ============================================
+// INCIDENT MANAGEMENT
+// ============================================
 
 // Inject AI-generated incident
 router.post('/games/:gameId/inject-incident', (req, res) =>

@@ -20,6 +20,13 @@ import {
   getChangeRequest,
   approveChangeRequest,
   implementChange,
+  // CAB Workflow
+  getCABPendingChanges,
+  getTeamReviewChanges,
+  sendChangeForReview,
+  submitChangeReview,
+  cabApproveChange,
+  cabRejectChange,
   // Resources
   getTeamResources,
   initializeTeamResources,
@@ -56,6 +63,14 @@ router.post('/games/:gameId/changes', createChangeRequest);
 router.get('/changes/:changeId', getChangeRequest);
 router.post('/changes/:changeId/approve', approveChangeRequest);
 router.post('/changes/:changeId/implement', implementChange);
+
+// ==================== CAB WORKFLOW ====================
+router.get('/games/:gameId/changes/cab-pending', getCABPendingChanges);
+router.get('/games/:gameId/teams/:teamId/changes/review', getTeamReviewChanges);
+router.post('/changes/:changeId/send-for-review', sendChangeForReview);
+router.post('/changes/:changeId/submit-review', submitChangeReview);
+router.post('/changes/:changeId/cab-approve', cabApproveChange);
+router.post('/changes/:changeId/cab-reject', cabRejectChange);
 
 // ==================== RESOURCES ====================
 router.get('/teams/:teamId/resources', getTeamResources);
