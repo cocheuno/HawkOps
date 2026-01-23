@@ -36,7 +36,7 @@ export class ServiceHealthService {
    */
   async getServiceHealth(gameId: string): Promise<ServiceHealthSummary> {
     try {
-      // Get all configuration items with incident counts
+      // Get all configuration items with incident counts using enhanced keyword matching
       const result = await this.pool.query(
         `SELECT
            ci.id,
@@ -50,6 +50,21 @@ export class ServiceHealthService {
              AND (
                i.affected_ci_id = ci.id
                OR i.ai_context->>'affectedService' ILIKE '%' || ci.name || '%'
+               OR ci.name ILIKE '%' || COALESCE(i.ai_context->>'affectedService', '') || '%'
+               -- Keyword matching for Database/DB
+               OR (LOWER(ci.name) LIKE '%database%' AND (
+                 LOWER(COALESCE(i.ai_context->>'affectedService', '')) LIKE '%db%'
+                 OR LOWER(COALESCE(i.ai_context->>'affectedService', '')) LIKE '%database%'
+                 OR LOWER(i.title) LIKE '%db%' OR LOWER(i.title) LIKE '%database%'
+               ))
+               -- Keyword matching for Auth
+               OR (LOWER(ci.name) LIKE '%authentication%' AND (
+                 LOWER(COALESCE(i.ai_context->>'affectedService', '')) LIKE '%auth%'
+                 OR LOWER(i.title) LIKE '%auth%' OR LOWER(i.title) LIKE '%login%'
+               ))
+               -- Title/description matching
+               OR i.title ILIKE '%' || ci.name || '%'
+               OR i.description ILIKE '%' || ci.name || '%'
              )
            ) as active_incidents
          FROM configuration_items ci
@@ -120,8 +135,11 @@ export class ServiceHealthService {
   async updateServiceStatuses(gameId: string): Promise<void> {
     try {
       // Get all services with their active incident counts and severities
-      // Uses flexible matching: check if service name appears in incident's affected service
-      // or if incident's affected service appears in service name (for partial matches like "Database" -> "Primary Database")
+      // Uses flexible matching with multiple strategies:
+      // 1. Direct affected_ci_id link
+      // 2. Full name matching (bidirectional LIKE)
+      // 3. Keyword matching for common abbreviations (DB = Database, Auth = Authentication, etc.)
+      // 4. Title/description containing service name
       const servicesResult = await this.pool.query(
         `SELECT
            ci.id,
@@ -139,9 +157,39 @@ export class ServiceHealthService {
          LEFT JOIN incidents i ON (
            i.game_id = ci.game_id
            AND (
+             -- Direct CI link
              i.affected_ci_id = ci.id
+             -- Bidirectional text matching on affectedService
              OR LOWER(i.ai_context->>'affectedService') LIKE '%' || LOWER(ci.name) || '%'
              OR LOWER(ci.name) LIKE '%' || LOWER(COALESCE(i.ai_context->>'affectedService', '')) || '%'
+             -- Keyword matching for Database/DB
+             OR (LOWER(ci.name) LIKE '%database%' AND (
+               LOWER(COALESCE(i.ai_context->>'affectedService', '')) LIKE '%db%'
+               OR LOWER(COALESCE(i.ai_context->>'affectedService', '')) LIKE '%database%'
+               OR LOWER(i.title) LIKE '%db%'
+               OR LOWER(i.title) LIKE '%database%'
+               OR LOWER(i.description) LIKE '%database%'
+             ))
+             -- Keyword matching for Authentication/Auth
+             OR (LOWER(ci.name) LIKE '%authentication%' AND (
+               LOWER(COALESCE(i.ai_context->>'affectedService', '')) LIKE '%auth%'
+               OR LOWER(i.title) LIKE '%auth%'
+               OR LOWER(i.title) LIKE '%login%'
+               OR LOWER(i.description) LIKE '%authentication%'
+             ))
+             -- Keyword matching for API/Gateway
+             OR (LOWER(ci.name) LIKE '%api%' OR LOWER(ci.name) LIKE '%gateway%') AND (
+               LOWER(COALESCE(i.ai_context->>'affectedService', '')) LIKE '%api%'
+               OR LOWER(i.title) LIKE '%api%'
+               OR LOWER(i.description) LIKE '%api%'
+             )
+             -- Keyword matching for Web Application
+             OR (LOWER(ci.name) LIKE '%web%' AND (
+               LOWER(COALESCE(i.ai_context->>'affectedService', '')) LIKE '%web%'
+               OR LOWER(COALESCE(i.ai_context->>'affectedService', '')) LIKE '%website%'
+               OR LOWER(i.title) LIKE '%web%'
+             ))
+             -- Title/description containing service name
              OR LOWER(i.title) LIKE '%' || LOWER(ci.name) || '%'
              OR LOWER(i.description) LIKE '%' || LOWER(ci.name) || '%'
            )

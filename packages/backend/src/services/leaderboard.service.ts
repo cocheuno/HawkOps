@@ -60,10 +60,10 @@ export class LeaderboardService {
          t.budget_remaining,
          t.morale_level,
          -- Incidents resolved
-         (SELECT COUNT(*) FROM incidents WHERE assigned_team_id = t.id AND game_id = $1 AND status IN ('resolved', 'closed')) as incidents_resolved,
+         (SELECT COUNT(*) FROM incidents WHERE assigned_to_team_id = t.id AND game_id = $1 AND status IN ('resolved', 'closed')) as incidents_resolved,
          -- Avg resolution time (minutes)
          (SELECT COALESCE(AVG(EXTRACT(EPOCH FROM (updated_at - created_at))/60), 0)
-          FROM incidents WHERE assigned_team_id = t.id AND game_id = $1 AND status IN ('resolved', 'closed')) as avg_resolution_time,
+          FROM incidents WHERE assigned_to_team_id = t.id AND game_id = $1 AND status IN ('resolved', 'closed')) as avg_resolution_time,
          -- SLA compliance
          (SELECT CASE
            WHEN COUNT(*) = 0 THEN 100
@@ -71,7 +71,7 @@ export class LeaderboardService {
              (COUNT(*) FILTER (WHERE sla_breached = false OR sla_breached IS NULL)::DECIMAL / NULLIF(COUNT(*), 0)) * 100
            )
           END
-          FROM incidents WHERE assigned_team_id = t.id AND game_id = $1 AND status IN ('resolved', 'closed')) as sla_compliance,
+          FROM incidents WHERE assigned_to_team_id = t.id AND game_id = $1 AND status IN ('resolved', 'closed')) as sla_compliance,
          -- Stakeholder satisfaction (avg response score)
          (SELECT COALESCE(AVG(ai_response_score), 0)
           FROM stakeholder_communications WHERE assigned_to_team_id = t.id AND game_id = $1 AND status = 'responded') as stakeholder_satisfaction,
@@ -261,7 +261,7 @@ export class LeaderboardService {
           END as points,
           i.priority as rarity
         FROM incidents i
-        JOIN teams t ON i.assigned_team_id = t.id
+        JOIN teams t ON i.assigned_to_team_id = t.id
         WHERE i.game_id = $1 AND i.status IN ('resolved', 'closed')
       )
       ORDER BY timestamp DESC
