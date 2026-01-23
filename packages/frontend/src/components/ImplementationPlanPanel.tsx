@@ -389,6 +389,7 @@ export default function ImplementationPlanPanel({
           onStartImplementation={handleStartImplementation}
           onCompleteImplementation={handleCompleteImplementation}
           onCreateChangeRequest={handleCreateChangeRequest}
+          onUpdatePlan={handleUpdatePlan}
           submitting={submitting}
         />
       )}
