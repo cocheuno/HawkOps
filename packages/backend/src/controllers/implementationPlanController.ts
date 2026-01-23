@@ -180,45 +180,58 @@ export class ImplementationPlanController {
     const pool = getPool();
 
     try {
-      const prompt = `You are an ITSM expert evaluating an implementation plan submitted by a team to resolve an incident.
+      const prompt = `You are a supportive ITSM instructor evaluating an implementation plan submitted by students learning IT Service Management. Your goal is to help them learn and improve, not to be overly critical.
 
-INCIDENT CONTEXT:
-Title: ${plan.incident_title || 'General Problem'}
-Description: ${plan.incident_description || 'No specific incident'}
-Priority: ${plan.priority || 'medium'}
-Severity: ${plan.severity || 'medium'}
-${plan.ai_context ? `Teaching Point: ${plan.ai_context.teachingPoint}` : ''}
+CONTEXT: This is an educational ITSM simulation. Students are learning how to create implementation plans for IT incidents. Be encouraging while providing constructive feedback.
 
-SCENARIO CONTEXT:
-${plan.scenario_context ? JSON.stringify(plan.scenario_context, null, 2) : 'General ITSM scenario'}
+INCIDENT BEING ADDRESSED:
+- Title: ${plan.incident_title || 'General IT Problem'}
+- Description: ${plan.incident_description || 'No specific incident description'}
+- Priority: ${plan.priority || 'medium'}
+- Severity: ${plan.severity || 'medium'}
+${plan.ai_context?.teachingPoint ? `- Learning Objective: ${plan.ai_context.teachingPoint}` : ''}
 
-SUBMITTED PLAN:
-Title: ${plan.title}
-Description: ${plan.description}
-Root Cause Analysis: ${plan.root_cause_analysis || 'Not provided'}
-Affected Systems: ${plan.affected_systems?.join(', ') || 'Not specified'}
-Implementation Steps: ${JSON.stringify(plan.implementation_steps || [], null, 2)}
-Estimated Effort: ${plan.estimated_effort_hours || 'Not specified'} hours
-Risk Level: ${plan.risk_level}
-Mitigation Strategy: ${plan.mitigation_strategy || 'Not provided'}
-Rollback Plan: ${plan.rollback_plan || 'Not provided'}
+STUDENT'S SUBMITTED PLAN:
+- Title: ${plan.title}
+- Description: ${plan.description}
+- Root Cause Analysis: ${plan.root_cause_analysis || 'Not provided'}
+- Implementation Steps: ${JSON.stringify(plan.implementation_steps || [], null, 2)}
+- Estimated Effort: ${plan.estimated_effort_hours || 'Not specified'} hours
+- Risk Level: ${plan.risk_level || 'medium'}
+- Mitigation Strategy: ${plan.mitigation_strategy || 'Not provided'}
+- Rollback Plan: ${plan.rollback_plan || 'Not provided'}
 
-Please evaluate this plan and provide:
-1. An overall score from 0-100
-2. A decision: "approve", "needs_revision", or "reject"
-3. Specific feedback on what's good about the plan
-4. Specific suggestions for improvement (if any)
-5. Any critical issues that must be addressed
+SCORING GUIDELINES (be fair and educational):
+- 70-100: Plan is well-structured with clear steps, addresses the incident, has risk mitigation. Approve.
+- 50-69: Plan has good elements but needs some improvements. Approve with suggestions.
+- 30-49: Plan has potential but is missing key elements. Needs revision.
+- 0-29: Plan is too vague or doesn't address the incident. Needs significant revision.
 
-Return your evaluation as JSON:
+KEY EVALUATION CRITERIA:
+1. Does the plan clearly describe WHAT will be done? (even simple steps count)
+2. Does it have a logical sequence of steps?
+3. Is there some consideration of risks?
+4. Is there a basic rollback/recovery approach?
+
+IMPORTANT INSTRUCTIONS:
+- Be CONSTRUCTIVE and SPECIFIC in your feedback
+- If something is missing, explain exactly what they should add
+- If steps are vague, give an example of how to make them clearer
+- Acknowledge what they did well before suggesting improvements
+- For educational purposes, a reasonable attempt should score at least 50-60
+- Only score below 50 if the plan is truly incomplete or off-topic
+
+Provide your evaluation as JSON:
 {
-  "score": <number>,
+  "score": <number 0-100>,
   "decision": "<approve|needs_revision|reject>",
-  "strengths": ["<strength1>", "<strength2>"],
-  "suggestions": ["<suggestion1>", "<suggestion2>"],
-  "criticalIssues": ["<issue1>"] or [],
-  "overallFeedback": "<summary feedback>"
-}`;
+  "strengths": ["<specific thing done well>", "<another strength>"],
+  "suggestions": ["<specific actionable suggestion>", "<another suggestion>"],
+  "criticalIssues": ["<only truly critical problems>"] or [],
+  "overallFeedback": "<2-3 sentence summary with encouragement and clear next steps>"
+}
+
+Remember: Your feedback will be shown directly to students to help them improve. Be helpful and specific!`;
 
       const aiResponse = await claudeService.generateScenarioResponse(prompt, 'plan_evaluation');
 
@@ -233,16 +246,24 @@ Return your evaluation as JSON:
           throw new Error('No JSON found in response');
         }
       } catch (parseError) {
-        // Fallback evaluation
+        logger.warn('Failed to parse AI evaluation response, using fallback:', parseError);
+        // Fallback evaluation with helpful feedback
         evaluation = {
-          score: 60,
+          score: 55,
           decision: 'needs_revision',
-          strengths: ['Plan was submitted'],
-          suggestions: ['Please provide more detailed implementation steps'],
+          strengths: ['You submitted a plan - good start!', 'The plan shows understanding of the problem'],
+          suggestions: [
+            'Add more specific implementation steps (e.g., "1. Check server logs for errors", "2. Restart the affected service")',
+            'Include a rollback plan in case something goes wrong',
+            'Specify who will perform each step and estimated timing'
+          ],
           criticalIssues: [],
-          overallFeedback: 'The plan needs more detail to be properly evaluated.',
+          overallFeedback: 'Your plan is a good starting point! To improve, try adding more specific, actionable steps and consider what you would do if the fix doesn\'t work. Keep going - you\'re on the right track!',
         };
       }
+
+      // Ensure score is reasonable (between 0 and 100)
+      evaluation.score = Math.max(0, Math.min(100, evaluation.score || 50));
 
       // Map decision to status
       let newStatus;
@@ -289,14 +310,25 @@ Return your evaluation as JSON:
     } catch (error: any) {
       logger.error('Error evaluating plan with AI:', error);
 
-      // Update plan to show error
+      // Update plan with helpful error feedback
+      const errorEvaluation = {
+        score: 50,
+        decision: 'needs_revision',
+        strengths: ['Plan was submitted'],
+        suggestions: ['Please try submitting again or add more details to your plan'],
+        criticalIssues: [],
+        overallFeedback: 'We had trouble evaluating your plan automatically. Please review your plan and try submitting again. Make sure you have clear implementation steps and a description of what you plan to do.',
+        error: error.message
+      };
+
       await pool.query(
         `UPDATE implementation_plans
          SET status = 'ai_needs_revision',
              ai_evaluation = $1::jsonb,
+             ai_evaluation_score = 50,
              ai_reviewed_at = NOW()
          WHERE id = $2::uuid`,
-        [JSON.stringify({ error: 'AI evaluation failed', message: error.message }), planId]
+        [JSON.stringify(errorEvaluation), planId]
       );
     }
   }
