@@ -235,7 +235,7 @@ export class StudentController {
    */
   async assignStudentToTeam(req: Request, res: Response) {
     const { gameId, teamId } = req.params;
-    const { studentId } = req.body;
+    const { studentId, sendEmail: shouldSendEmail } = req.body;
     const pool = getPool();
 
     if (!studentId) {
@@ -261,6 +261,24 @@ export class StudentController {
 
       const student = studentResult.rows[0];
 
+      // Get team and game details for the email
+      const teamResult = await pool.query(
+        `SELECT t.*, g.name as game_name
+         FROM teams t
+         JOIN games g ON t.game_id = g.id
+         WHERE t.id = $1::uuid`,
+        [teamId]
+      );
+
+      if (teamResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: 'Team not found',
+        });
+      }
+
+      const team = teamResult.rows[0];
+
       // Check if student is already assigned to a team in this game
       const existingPlayer = await pool.query(
         `SELECT p.*, t.name as team_name
@@ -270,34 +288,68 @@ export class StudentController {
         [gameId, studentId]
       );
 
+      // Generate access token for student
+      const jwt = require('jsonwebtoken');
+      const { env } = require('../config/env');
+      const accessToken = jwt.sign(
+        {
+          studentId: student.id,
+          teamId,
+          gameId,
+          email: student.email,
+          type: 'student_access',
+        },
+        env.SESSION_SECRET,
+        { expiresIn: '7d' }
+      );
+
+      let playerId: string;
+
       if (existingPlayer.rows.length > 0) {
-        // Update existing player's team
+        // Update existing player's team and access token
         const result = await pool.query(
           `UPDATE players
-           SET team_id = $1::uuid, updated_at = NOW()
+           SET team_id = $1::uuid, access_token = $4, updated_at = NOW()
            WHERE game_id = $2::uuid AND student_id = $3::uuid
            RETURNING *`,
-          [teamId, gameId, studentId]
+          [teamId, gameId, studentId, accessToken]
         );
+        playerId = result.rows[0].id;
+      } else {
+        // Create new player for this game with access token
+        const result = await pool.query(
+          `INSERT INTO players (game_id, team_id, student_id, name, access_token)
+           VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5)
+           RETURNING *`,
+          [gameId, teamId, studentId, `${student.first_name} ${student.last_name}`, accessToken]
+        );
+        playerId = result.rows[0].id;
+      }
 
-        return res.json({
-          success: true,
-          message: 'Student reassigned to team',
-          player: result.rows[0],
+      // Send email if requested and email is available
+      let emailSent = false;
+      if (shouldSendEmail !== false && student.email) {
+        const { emailService } = require('../services/email.service');
+        const teamPageUrl = `${env.CLIENT_URL}/student/team/${teamId}`;
+
+        emailSent = await emailService.sendTeamAssignmentEmail({
+          studentName: `${student.first_name} ${student.last_name}`,
+          studentEmail: student.email,
+          teamName: team.name,
+          teamRole: team.role,
+          gameName: team.game_name,
+          teamPageUrl,
+          accessToken,
         });
       }
 
-      // Create new player for this game
-      const result = await pool.query(
-        `INSERT INTO players (game_id, team_id, student_id, name)
-         VALUES ($1::uuid, $2::uuid, $3::uuid, $4)
-         RETURNING *`,
-        [gameId, teamId, studentId, `${student.first_name} ${student.last_name}`]
-      );
-
-      return res.status(201).json({
+      return res.status(existingPlayer.rows.length > 0 ? 200 : 201).json({
         success: true,
-        player: result.rows[0],
+        message: existingPlayer.rows.length > 0 ? 'Student reassigned to team' : 'Student assigned to team',
+        playerId,
+        accessToken,
+        emailSent,
+        teamPageUrl: `${env.CLIENT_URL}/student/team/${teamId}?token=${accessToken}`,
       });
     } catch (error: any) {
       logger.error('Error assigning student to team:', error);

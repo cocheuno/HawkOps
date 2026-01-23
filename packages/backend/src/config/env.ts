@@ -24,6 +24,15 @@ export const env = {
   ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || '',
   CLAUDE_MODEL: process.env.CLAUDE_MODEL || 'claude-3-haiku-20240307',
 
+  // Email (SMTP)
+  SMTP_HOST: process.env.SMTP_HOST || 'smtp.gmail.com',
+  SMTP_PORT: parseInt(process.env.SMTP_PORT || '587', 10),
+  SMTP_SECURE: process.env.SMTP_SECURE === 'true',
+  SMTP_USER: process.env.SMTP_USER || '',
+  SMTP_PASSWORD: process.env.SMTP_PASSWORD || '',
+  EMAIL_FROM: process.env.EMAIL_FROM || 'noreply@hawkops.edu',
+  EMAIL_FROM_NAME: process.env.EMAIL_FROM_NAME || 'HawkOps ITSM Simulation',
+
   // Game Configuration
   GAME_DURATION_MINUTES: parseInt(process.env.GAME_DURATION_MINUTES || '75', 10),
   MAX_TEAMS: parseInt(process.env.MAX_TEAMS || '3', 10),
