@@ -235,7 +235,8 @@ export class InstructorController {
 
       // Get active incidents
       const incidentsResult = await pool.query(
-        `SELECT id, incident_number, title, priority, severity, status, ai_generated, created_at
+        `SELECT id, incident_number, title, description, priority, severity, status,
+                sla_deadline, ai_generated, ai_context, assigned_to_team_id, created_at
          FROM incidents
          WHERE game_id = $1 AND status NOT IN ('closed', 'resolved')
          ORDER BY priority, created_at DESC`,
@@ -285,10 +286,14 @@ export class InstructorController {
           id: i.id,
           incidentNumber: i.incident_number,
           title: i.title,
+          description: i.description,
           priority: i.priority,
           severity: i.severity,
           status: i.status,
+          slaDeadline: i.sla_deadline,
           aiGenerated: i.ai_generated,
+          aiContext: i.ai_context,
+          assignedTeamId: i.assigned_to_team_id,
           createdAt: i.created_at,
         })),
         technicalDebt: parseInt(techDebtResult.rows[0].total_debt),

@@ -27,10 +27,14 @@ interface Incident {
   id: string;
   incidentNumber: string;
   title: string;
+  description: string;
   priority: string;
   severity: string;
   status: string;
+  slaDeadline?: string;
   aiGenerated: boolean;
+  aiContext?: any;
+  assignedTeamId?: string;
   createdAt: string;
 }
 
@@ -513,6 +517,13 @@ export default function InstructorDashboardPage() {
                             AI Generated
                           </span>
                         )}
+                        <span className={`text-xs px-2 py-1 rounded font-semibold ${
+                          incident.status === 'open' ? 'bg-red-100 text-red-700' :
+                          incident.status === 'in_progress' ? 'bg-yellow-100 text-yellow-700' :
+                          'bg-gray-100 text-gray-700'
+                        }`}>
+                          {incident.status.replace('_', ' ').toUpperCase()}
+                        </span>
                       </div>
                       <div className="flex gap-2">
                         <span className={`text-xs px-2 py-1 rounded font-semibold ${
@@ -529,7 +540,32 @@ export default function InstructorDashboardPage() {
                       </div>
                     </div>
                     <h4 className="font-semibold text-gray-800 mb-1">{incident.title}</h4>
-                    <p className="text-sm text-gray-600">Status: {incident.status}</p>
+                    <p className="text-sm text-gray-600 mb-2 line-clamp-2">{incident.description}</p>
+
+                    {/* SLA and Assignment Info */}
+                    <div className="flex flex-wrap gap-4 text-xs text-gray-500 mb-2">
+                      {incident.slaDeadline && (
+                        <span className={`${new Date(incident.slaDeadline) < new Date() ? 'text-red-600 font-semibold' : ''}`}>
+                          SLA: {new Date(incident.slaDeadline).toLocaleString()}
+                        </span>
+                      )}
+                      {incident.assignedTeamId && (
+                        <span>
+                          Assigned to: {gameState.teams.find(t => t.id === incident.assignedTeamId)?.name || 'Unknown'}
+                        </span>
+                      )}
+                      <span>
+                        Created: {new Date(incident.createdAt).toLocaleString()}
+                      </span>
+                    </div>
+
+                    {/* AI Teaching Point */}
+                    {incident.aiContext?.teachingPoint && (
+                      <div className="bg-purple-50 border border-purple-200 rounded p-2 mt-2">
+                        <span className="text-xs font-semibold text-purple-700">Teaching Point: </span>
+                        <span className="text-xs text-purple-600">{incident.aiContext.teachingPoint}</span>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
