@@ -240,7 +240,7 @@ export default function AnalyticsDashboard({ gameId, teamId: _teamId, isInstruct
 
       <div className="p-6">
         {/* Overview Tab */}
-        {activeTab === 'overview' && currentState && (
+        {activeTab === 'overview' && (
           <div>
             {/* Key Metrics Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -248,7 +248,7 @@ export default function AnalyticsDashboard({ gameId, teamId: _teamId, isInstruct
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="text-sm text-purple-600 font-medium">Total Score</p>
-                    <p className="text-3xl font-bold text-purple-800">{currentState.totalScore}</p>
+                    <p className="text-3xl font-bold text-purple-800">{currentState?.totalScore ?? 0}</p>
                   </div>
                   {trends && getTrendIcon(trends.scoreTrend)}
                 </div>
@@ -258,7 +258,7 @@ export default function AnalyticsDashboard({ gameId, teamId: _teamId, isInstruct
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="text-sm text-green-600 font-medium">System Health</p>
-                    <p className="text-3xl font-bold text-green-800">{currentState.systemHealthScore.toFixed(1)}%</p>
+                    <p className="text-3xl font-bold text-green-800">{(currentState?.systemHealthScore ?? 100).toFixed(1)}%</p>
                   </div>
                   {trends && getTrendIcon(trends.systemHealthTrend)}
                 </div>
@@ -268,7 +268,7 @@ export default function AnalyticsDashboard({ gameId, teamId: _teamId, isInstruct
                 <div>
                   <p className="text-sm text-blue-600 font-medium">Incidents Resolved</p>
                   <p className="text-3xl font-bold text-blue-800">
-                    {currentState.resolvedIncidents}/{currentState.totalIncidents}
+                    {currentState?.resolvedIncidents ?? 0}/{currentState?.totalIncidents ?? 0}
                   </p>
                 </div>
               </div>
@@ -276,7 +276,7 @@ export default function AnalyticsDashboard({ gameId, teamId: _teamId, isInstruct
               <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-4">
                 <div>
                   <p className="text-sm text-red-600 font-medium">SLA Breaches</p>
-                  <p className="text-3xl font-bold text-red-800">{currentState.breachedSlas}</p>
+                  <p className="text-3xl font-bold text-red-800">{currentState?.breachedSlas ?? 0}</p>
                 </div>
               </div>
             </div>
