@@ -401,7 +401,10 @@ export class ResourceManagementService {
       utilizationPercent: row.totalResources > 0
         ? Math.round(((row.totalResources - row.availableResources) / row.totalResources) * 100)
         : 0,
-      isOverloaded: row.availableResources <= 0
+      // Only mark as overloaded if resources exist AND none are available
+      isOverloaded: row.totalResources > 0 && row.availableResources <= 0,
+      // Flag if resources haven't been initialized yet
+      resourcesInitialized: row.totalResources > 0
     }));
   }
 

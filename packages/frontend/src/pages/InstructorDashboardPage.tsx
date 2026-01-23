@@ -554,13 +554,22 @@ export default function InstructorDashboardPage() {
                 {gameState.activeIncidents.map((incident) => (
                   <div key={incident.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
                     <div className="flex justify-between items-start mb-2">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-mono text-sm font-semibold text-gray-700">
                           {incident.incidentNumber}
                         </span>
+                        {incident.assignedTeamId ? (
+                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold">
+                            {gameState.teams.find(t => t.id === incident.assignedTeamId)?.name || 'Unknown Team'}
+                          </span>
+                        ) : (
+                          <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                            Unassigned
+                          </span>
+                        )}
                         {incident.aiGenerated && (
                           <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">
-                            AI Generated
+                            AI
                           </span>
                         )}
                         <span className={`text-xs px-2 py-1 rounded font-semibold ${

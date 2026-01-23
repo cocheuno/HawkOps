@@ -434,22 +434,35 @@ export const getGameResourceCapacity = async (req: Request, res: Response) => {
     const capacityStatus = await service.getGameCapacityStatus(gameId);
 
     // Transform to match frontend CapacityStatus interface
-    const capacity = capacityStatus.map((team: any) => ({
-      teamId: team.teamId,
-      teamName: team.teamName,
-      currentCapacity: team.availableResources,
-      maxCapacity: team.totalResources,
-      utilizationPercent: team.utilizationPercent,
-      status: team.isOverloaded ? 'overloaded' : team.utilizationPercent > 70 ? 'busy' : 'available',
-      activeIncidents: 0, // Will be populated below
-      activeChanges: 0
-    }));
+    const capacity = capacityStatus.map((team: any) => {
+      // Determine status based on initialization and utilization
+      let status = 'available';
+      if (!team.resourcesInitialized) {
+        status = 'available'; // Not yet initialized, show as available (not red)
+      } else if (team.isOverloaded) {
+        status = 'overloaded';
+      } else if (team.utilizationPercent > 70) {
+        status = 'busy';
+      }
+
+      return {
+        teamId: team.teamId,
+        teamName: team.teamName,
+        currentCapacity: team.availableResources,
+        maxCapacity: team.totalResources,
+        utilizationPercent: team.utilizationPercent,
+        status,
+        activeIncidents: 0, // Will be populated below
+        activeChanges: 0,
+        resourcesInitialized: team.resourcesInitialized
+      };
+    });
 
     // Get active incidents per team
     for (const c of capacity) {
       const incidentResult = await pool.query(
         `SELECT COUNT(*) as count FROM incidents
-         WHERE assigned_team_id = $1 AND status NOT IN ('resolved', 'closed')`,
+         WHERE assigned_to_team_id = $1 AND status NOT IN ('resolved', 'closed')`,
         [c.teamId]
       );
       c.activeIncidents = parseInt(incidentResult.rows[0]?.count) || 0;
