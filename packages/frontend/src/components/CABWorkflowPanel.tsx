@@ -74,14 +74,14 @@ export default function CABWorkflowPanel({
       if (isCABTeam) {
         // CAB team sees pending changes
         const response = await axios.get(`${API_URL}/games/${gameId}/changes/cab-pending`);
-        setPendingChanges(response.data || []);
+        setPendingChanges(response.data?.changes || []);
       }
 
       // All teams can see changes assigned to them for review
       const reviewResponse = await axios.get(
         `${API_URL}/games/${gameId}/teams/${teamId}/changes/review`
       );
-      setReviewChanges(reviewResponse.data || []);
+      setReviewChanges(reviewResponse.data?.changes || []);
       setLoading(false);
     } catch (error: any) {
       console.error('Error fetching CAB changes:', error);

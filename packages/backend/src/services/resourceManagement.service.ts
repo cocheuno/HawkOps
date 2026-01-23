@@ -59,21 +59,26 @@ export class ResourceManagementService {
 
   /**
    * Get all resources for all teams in a game
+   * Shows actual player/student counts alongside simulated resources
    */
   async getGameResources(gameId: string): Promise<any[]> {
     const result = await this.pool.query(
-      `SELECT tr.id, tr.team_id as "teamId", t.name as "teamName",
-              tr.total_capacity as "totalStaff", tr.available_capacity as "availableStaff",
-              COALESCE(
-                (SELECT COUNT(*) FROM resource_allocations ra WHERE ra.resource_id = tr.id AND ra.status = 'active'),
-                0
-              ) as "currentWorkload",
-              5 as "skillLevel",
-              10 as "maxConcurrentIncidents",
-              0 as "fatigueLevel"
-       FROM team_resources tr
-       JOIN teams t ON tr.team_id = t.id
-       WHERE t.game_id = $1 AND tr.resource_type = 'staff'
+      `SELECT
+              t.id as "teamId",
+              t.name as "teamName",
+              -- Actual players assigned to this team
+              (SELECT COUNT(*) FROM players p WHERE p.team_id = t.id AND p.game_id = $1 AND p.left_at IS NULL) as "totalStaff",
+              (SELECT COUNT(*) FROM players p WHERE p.team_id = t.id AND p.game_id = $1 AND p.left_at IS NULL) as "availableStaff",
+              -- Active incidents being worked
+              (SELECT COUNT(*) FROM incidents i WHERE i.assigned_to_team_id = t.id AND i.game_id = $1 AND i.status = 'in_progress') as "currentWorkload",
+              3 as "skillLevel",
+              5 as "maxConcurrentIncidents",
+              0 as "fatigueLevel",
+              -- Include team resource ID if it exists
+              tr.id
+       FROM teams t
+       LEFT JOIN team_resources tr ON tr.team_id = t.id AND tr.resource_type = 'staff'
+       WHERE t.game_id = $1
        ORDER BY t.name`,
       [gameId]
     );
@@ -363,6 +368,7 @@ export class ResourceManagementService {
 
   /**
    * Get capacity status for all teams in a game
+   * Uses actual player counts instead of simulated resources
    */
   async getGameCapacityStatus(gameId: string): Promise<TeamCapacityStatus[]> {
     const currentHour = new Date().getHours();
@@ -374,8 +380,13 @@ export class ResourceManagementService {
          COALESCE(ss.shift_name, 'No Shift') as "currentShift",
          COALESCE(ss.staff_count, 0) as "staffOnDuty",
          COALESCE(ss.efficiency_modifier, 1.0) as "efficiencyModifier",
-         COALESCE(SUM(tr.total_capacity), 0) as "totalResources",
-         COALESCE(SUM(tr.available_capacity), 0) as "availableResources"
+         -- Use actual player count as total resources
+         (SELECT COUNT(*) FROM players p WHERE p.team_id = t.id AND p.game_id = $1 AND p.left_at IS NULL) as "totalResources",
+         -- Available = total players minus active in-progress incidents
+         (SELECT COUNT(*) FROM players p WHERE p.team_id = t.id AND p.game_id = $1 AND p.left_at IS NULL) -
+         (SELECT COUNT(*) FROM incidents i WHERE i.assigned_to_team_id = t.id AND i.game_id = $1 AND i.status = 'in_progress') as "availableResources",
+         -- Active incidents for this team
+         (SELECT COUNT(*) FROM incidents i WHERE i.assigned_to_team_id = t.id AND i.game_id = $1 AND i.status IN ('open', 'in_progress')) as "activeIncidents"
        FROM teams t
        LEFT JOIN shift_schedules ss ON ss.team_id = t.id
          AND ss.is_active = TRUE
@@ -384,28 +395,33 @@ export class ResourceManagementService {
            OR
            (ss.start_hour > ss.end_hour AND ($2 >= ss.start_hour OR $2 < ss.end_hour))
          )
-       LEFT JOIN team_resources tr ON tr.team_id = t.id AND tr.resource_type = 'staff'
        WHERE t.game_id = $1
        GROUP BY t.id, t.name, ss.shift_name, ss.staff_count, ss.efficiency_modifier`,
       [gameId, currentHour]
     );
 
-    return result.rows.map((row: any) => ({
-      teamId: row.teamId,
-      teamName: row.teamName,
-      currentShift: row.currentShift,
-      staffOnDuty: parseInt(row.staffOnDuty),
-      efficiencyModifier: parseFloat(row.efficiencyModifier),
-      totalResources: parseInt(row.totalResources),
-      availableResources: parseInt(row.availableResources),
-      utilizationPercent: row.totalResources > 0
-        ? Math.round(((row.totalResources - row.availableResources) / row.totalResources) * 100)
-        : 0,
-      // Only mark as overloaded if resources exist AND none are available
-      isOverloaded: row.totalResources > 0 && row.availableResources <= 0,
-      // Flag if resources haven't been initialized yet
-      resourcesInitialized: row.totalResources > 0
-    }));
+    return result.rows.map((row: any) => {
+      const totalResources = parseInt(row.totalResources) || 0;
+      const availableResources = Math.max(0, parseInt(row.availableResources) || 0);
+      const activeIncidents = parseInt(row.activeIncidents) || 0;
+
+      return {
+        teamId: row.teamId,
+        teamName: row.teamName,
+        currentShift: row.currentShift,
+        staffOnDuty: parseInt(row.staffOnDuty),
+        efficiencyModifier: parseFloat(row.efficiencyModifier),
+        totalResources,
+        availableResources,
+        utilizationPercent: totalResources > 0
+          ? Math.round((activeIncidents / totalResources) * 100)
+          : 0,
+        // Only mark as overloaded if team has players AND more incidents than people
+        isOverloaded: totalResources > 0 && activeIncidents > totalResources,
+        // Flag if team has players assigned
+        resourcesInitialized: totalResources > 0
+      };
+    });
   }
 
   /**
