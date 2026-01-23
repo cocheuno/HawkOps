@@ -371,7 +371,7 @@ export class DocumentController {
 
   /**
    * Get documents available to a participant
-   * GET /api/games/:gameId/documents?playerId=xxx
+   * GET /api/games/:gameId/documents?playerId=xxx or ?teamId=xxx
    */
   async getParticipantDocuments(req: Request, res: Response) {
     const { gameId } = req.params;
@@ -388,7 +388,6 @@ export class DocumentController {
 
     try {
       let teamId = queryTeamId;
-      let effectivePlayerId = playerId;
 
       // If playerId is provided, get player's team
       if (playerId) {
@@ -407,31 +406,46 @@ export class DocumentController {
         teamId = playerResult.rows[0].team_id;
       }
 
+      // Build read check - check for either player_id or team_id match
+      let readCheckClause: string;
+      let params: any[];
+
+      if (playerId) {
+        // Check if player has read OR if team has read
+        readCheckClause = `(read_receipts @> $1::jsonb OR read_receipts @> $2::jsonb) as is_read`;
+        params = [
+          JSON.stringify([{ player_id: playerId }]),
+          JSON.stringify([{ team_id: teamId }]),
+          gameId,
+          teamId,
+          playerId,
+        ];
+      } else {
+        // Only check team-level reads
+        readCheckClause = `read_receipts @> $1::jsonb as is_read`;
+        params = [
+          JSON.stringify([{ team_id: queryTeamId }]),
+          gameId,
+          queryTeamId,
+        ];
+      }
+
       // Get documents visible to this player/team
       const result = await pool.query(
         `SELECT id, document_type, title, visibility, is_required_reading,
                 estimated_read_time, tags, created_at,
-                ${effectivePlayerId ? `read_receipts @> $1::jsonb as is_read` : 'false as is_read'}
+                ${readCheckClause}
          FROM simulation_documents
-         WHERE game_id = $${effectivePlayerId ? '2' : '1'}::uuid
+         WHERE game_id = $${playerId ? '3' : '2'}::uuid
            AND status = 'published'
            AND (publish_at IS NULL OR publish_at <= NOW())
            AND (
              visibility = 'all_participants'
-             ${teamId ? `OR (visibility = 'team_only' AND team_id = $${effectivePlayerId ? '3' : '2'}::uuid)` : ''}
-             ${effectivePlayerId ? `OR (visibility = 'player_only' AND player_id = $4::uuid)` : ''}
+             ${teamId ? `OR (visibility = 'team_only' AND team_id = $${playerId ? '4' : '3'}::uuid)` : ''}
+             ${playerId ? `OR (visibility = 'player_only' AND player_id = $5::uuid)` : ''}
            )
          ORDER BY order_index, created_at`,
-        effectivePlayerId
-          ? [
-              JSON.stringify([{ player_id: playerId }]),
-              gameId,
-              teamId,
-              playerId,
-            ]
-          : teamId
-          ? [gameId, teamId]
-          : [gameId]
+        params
       );
 
       return res.json({
@@ -450,7 +464,7 @@ export class DocumentController {
 
   /**
    * Get document content (participant view)
-   * GET /api/games/:gameId/documents/:documentId?playerId=xxx
+   * GET /api/games/:gameId/documents/:documentId?playerId=xxx or ?teamId=xxx
    */
   async getParticipantDocument(req: Request, res: Response) {
     const { gameId, documentId } = req.params;
@@ -467,7 +481,6 @@ export class DocumentController {
 
     try {
       let teamId = queryTeamId;
-      let effectivePlayerId = playerId;
 
       // If playerId is provided, get player's team
       if (playerId) {
@@ -486,32 +499,48 @@ export class DocumentController {
         teamId = playerResult.rows[0].team_id;
       }
 
+      // Build read check - check for either player_id or team_id match
+      let readCheckClause: string;
+      let params: any[];
+
+      if (playerId) {
+        // Check if player has read OR if team has read
+        readCheckClause = `(read_receipts @> $1::jsonb OR read_receipts @> $2::jsonb) as is_read`;
+        params = [
+          JSON.stringify([{ player_id: playerId }]),
+          JSON.stringify([{ team_id: teamId }]),
+          documentId,
+          gameId,
+          teamId,
+          playerId,
+        ];
+      } else {
+        // Only check team-level reads
+        readCheckClause = `read_receipts @> $1::jsonb as is_read`;
+        params = [
+          JSON.stringify([{ team_id: queryTeamId }]),
+          documentId,
+          gameId,
+          queryTeamId,
+        ];
+      }
+
       // Get document with access control
       const result = await pool.query(
         `SELECT id, document_type, title, content, visibility, is_required_reading,
                 estimated_read_time, tags, created_at,
-                ${effectivePlayerId ? `read_receipts @> $1::jsonb as is_read` : 'false as is_read'}
+                ${readCheckClause}
          FROM simulation_documents
-         WHERE id = $${effectivePlayerId ? '2' : '1'}::uuid
-           AND game_id = $${effectivePlayerId ? '3' : '2'}::uuid
+         WHERE id = $${playerId ? '3' : '2'}::uuid
+           AND game_id = $${playerId ? '4' : '3'}::uuid
            AND status = 'published'
            AND (publish_at IS NULL OR publish_at <= NOW())
            AND (
              visibility = 'all_participants'
-             ${teamId ? `OR (visibility = 'team_only' AND team_id = $${effectivePlayerId ? '4' : '3'}::uuid)` : ''}
-             ${effectivePlayerId ? `OR (visibility = 'player_only' AND player_id = $5::uuid)` : ''}
+             ${teamId ? `OR (visibility = 'team_only' AND team_id = $${playerId ? '5' : '4'}::uuid)` : ''}
+             ${playerId ? `OR (visibility = 'player_only' AND player_id = $6::uuid)` : ''}
            )`,
-        effectivePlayerId
-          ? [
-              JSON.stringify([{ player_id: playerId }]),
-              documentId,
-              gameId,
-              teamId,
-              playerId,
-            ]
-          : teamId
-          ? [documentId, gameId, teamId]
-          : [documentId, gameId]
+        params
       );
 
       if (result.rows.length === 0) {
@@ -541,18 +570,38 @@ export class DocumentController {
    */
   async markAsRead(req: Request, res: Response) {
     const { gameId, documentId } = req.params;
-    const { playerId, ipAddress } = req.body;
+    const { playerId, teamId, ipAddress } = req.body;
 
-    if (!playerId) {
+    if (!playerId && !teamId) {
       return res.status(400).json({
         success: false,
-        error: 'playerId is required',
+        error: 'Either playerId or teamId is required',
       });
     }
 
     const pool = getPool();
 
     try {
+      // Build the read receipt - support both player-level and team-level tracking
+      const readReceipt: Record<string, any> = {
+        read_at: new Date().toISOString(),
+        ip_address: ipAddress,
+      };
+
+      // Check for existing read and build query based on what ID we have
+      let checkKey: string;
+      let checkValue: any;
+
+      if (playerId) {
+        readReceipt.player_id = playerId;
+        checkKey = 'player_id';
+        checkValue = playerId;
+      } else {
+        readReceipt.team_id = teamId;
+        checkKey = 'team_id';
+        checkValue = teamId;
+      }
+
       // Add read receipt
       const result = await pool.query(
         `UPDATE simulation_documents
@@ -562,10 +611,10 @@ export class DocumentController {
            AND NOT (read_receipts @> $4::jsonb)
          RETURNING id`,
         [
-          JSON.stringify({ player_id: playerId, read_at: new Date().toISOString(), ip_address: ipAddress }),
+          JSON.stringify(readReceipt),
           documentId,
           gameId,
-          JSON.stringify([{ player_id: playerId }]),
+          JSON.stringify([{ [checkKey]: checkValue }]),
         ]
       );
 
@@ -577,7 +626,8 @@ export class DocumentController {
         });
       }
 
-      logger.info(`Document ${documentId} marked as read by player ${playerId}`);
+      const identifier = playerId ? `player ${playerId}` : `team ${teamId}`;
+      logger.info(`Document ${documentId} marked as read by ${identifier}`);
 
       return res.json({
         success: true,
