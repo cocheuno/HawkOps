@@ -14,6 +14,7 @@ import EscalationPanel from '../components/EscalationPanel';
 import ChangeRequestPanel from '../components/ChangeRequestPanel';
 import ServiceDependencyGraph from '../components/ServiceDependencyGraph';
 import ResourceManagementPanel from '../components/ResourceManagementPanel';
+import ImplementationPlanPanel from '../components/ImplementationPlanPanel';
 
 const API_URL = import.meta.env.PROD ? '/api' : 'http://localhost:3000/api';
 
@@ -92,6 +93,7 @@ export default function OperationsDashboardPage() {
   const [showAchievements, setShowAchievements] = useState(false);
   const [showChangeRequests, setShowChangeRequests] = useState(false);
   const [showDependencies, setShowDependencies] = useState(false);
+  const [showImplementationPlans, setShowImplementationPlans] = useState(false);
 
   const fetchDashboard = async () => {
     try {
@@ -472,6 +474,40 @@ export default function OperationsDashboardPage() {
                   <div className="border-t">
                     <ServiceDependencyGraph
                       gameId={dashboardData.game.id}
+                      compact={false}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Implementation Plans Section */}
+            <div className="mb-6">
+              <div className="bg-white rounded-lg shadow">
+                <div
+                  className="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50"
+                  onClick={() => setShowImplementationPlans(!showImplementationPlans)}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">📋</span>
+                    <div>
+                      <h3 className="font-semibold text-gray-800">Implementation Plans</h3>
+                      <p className="text-sm text-gray-500">Document solutions and get AI feedback</p>
+                    </div>
+                  </div>
+                  <span className="text-gray-400">{showImplementationPlans ? '▼' : '▶'}</span>
+                </div>
+                {showImplementationPlans && (
+                  <div className="border-t">
+                    <ImplementationPlanPanel
+                      gameId={dashboardData.game.id}
+                      teamId={teamId}
+                      incidents={incidents.map(i => ({
+                        id: i.id,
+                        incidentNumber: i.incidentNumber,
+                        title: i.title,
+                        status: i.status,
+                      }))}
                       compact={false}
                     />
                   </div>

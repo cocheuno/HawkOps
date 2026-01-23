@@ -66,7 +66,7 @@ export class ChangeRequestService {
   }
 
   /**
-   * Create a new change request (auto-routes to CAB)
+   * Create a new change request (auto-routes to CAB if columns exist)
    */
   async createChangeRequest(
     gameId: string,
@@ -85,35 +85,60 @@ export class ChangeRequestService {
   ): Promise<ChangeRequest> {
     const changeNumber = await this.generateChangeNumber(gameId);
 
-    // Find the CAB team for this game
-    const cabResult = await this.pool.query(
-      `SELECT id FROM teams WHERE game_id = $1 AND role = 'Management/CAB' LIMIT 1`,
-      [gameId]
+    // Check if CAB workflow columns exist (migration 009)
+    const columnsCheck = await this.pool.query(
+      `SELECT column_name FROM information_schema.columns
+       WHERE table_name = 'change_requests' AND column_name = 'cab_team_id'`
     );
-    const cabTeamId = cabResult.rows.length > 0 ? cabResult.rows[0].id : null;
+    const hasCABColumns = columnsCheck.rows.length > 0;
 
-    // Emergency changes are auto-approved but still go to CAB for notification
+    // Emergency changes are auto-approved
     const initialStatus = changeType === 'emergency' ? 'approved' : 'pending';
-    const initialWorkflowState = changeType === 'emergency' ? 'approved' : 'pending_cab';
 
-    const result = await this.pool.query(
-      `INSERT INTO change_requests
-       (game_id, change_number, title, description, change_type, risk_level,
-        affected_services, requested_by_team_id, status, scheduled_start, scheduled_end,
-        implementation_plan, rollback_plan, test_plan, cab_team_id, workflow_state,
-        implementation_time_minutes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
-       RETURNING *`,
-      [
-        gameId, changeNumber, title, description, changeType, riskLevel,
-        affectedServices, requestedByTeamId, initialStatus,
-        scheduledStart || null, scheduledEnd || null,
-        implementationPlan || null, rollbackPlan || null, testPlan || null,
-        cabTeamId, initialWorkflowState, implementationTimeMinutes || null
-      ]
-    );
+    if (hasCABColumns) {
+      // Find the CAB team for this game
+      const cabResult = await this.pool.query(
+        `SELECT id FROM teams WHERE game_id = $1 AND role = 'Management/CAB' LIMIT 1`,
+        [gameId]
+      );
+      const cabTeamId = cabResult.rows.length > 0 ? cabResult.rows[0].id : null;
+      const initialWorkflowState = changeType === 'emergency' ? 'approved' : 'pending_cab';
 
-    return this.mapChangeRequest(result.rows[0]);
+      const result = await this.pool.query(
+        `INSERT INTO change_requests
+         (game_id, change_number, title, description, change_type, risk_level,
+          affected_services, requested_by_team_id, status, scheduled_start, scheduled_end,
+          implementation_plan, rollback_plan, test_plan, cab_team_id, workflow_state,
+          implementation_time_minutes)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+         RETURNING *`,
+        [
+          gameId, changeNumber, title, description, changeType, riskLevel,
+          affectedServices, requestedByTeamId, initialStatus,
+          scheduledStart || null, scheduledEnd || null,
+          implementationPlan || null, rollbackPlan || null, testPlan || null,
+          cabTeamId, initialWorkflowState, implementationTimeMinutes || null
+        ]
+      );
+      return this.mapChangeRequest(result.rows[0]);
+    } else {
+      // Legacy mode without CAB columns
+      const result = await this.pool.query(
+        `INSERT INTO change_requests
+         (game_id, change_number, title, description, change_type, risk_level,
+          affected_services, requested_by_team_id, status, scheduled_start, scheduled_end,
+          implementation_plan, rollback_plan, test_plan)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+         RETURNING *`,
+        [
+          gameId, changeNumber, title, description, changeType, riskLevel,
+          affectedServices, requestedByTeamId, initialStatus,
+          scheduledStart || null, scheduledEnd || null,
+          implementationPlan || null, rollbackPlan || null, testPlan || null
+        ]
+      );
+      return this.mapChangeRequest(result.rows[0]);
+    }
   }
 
   /**

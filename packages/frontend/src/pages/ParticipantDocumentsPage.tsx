@@ -70,12 +70,14 @@ export default function ParticipantDocumentsPage() {
   };
 
   const markAsRead = async (documentId: string) => {
-    if (!playerId) return;
+    // Support both player-level and team-level read tracking
+    if (!playerId && !teamId) return;
 
     setMarkingRead(true);
     try {
       await axios.post(`${API_URL}/games/${gameId}/documents/${documentId}/mark-read`, {
-        playerId,
+        playerId: playerId || undefined,
+        teamId: !playerId ? teamId : undefined, // Only send teamId if no playerId
         ipAddress: window.location.hostname,
       });
 
