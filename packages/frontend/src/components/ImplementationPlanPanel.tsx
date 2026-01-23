@@ -149,6 +149,22 @@ export default function ImplementationPlanPanel({
     }
   };
 
+  const handleUpdatePlan = async (planId: string, planData: any) => {
+    setSubmitting(true);
+    try {
+      await axios.put(`${API_URL}/teams/${teamId}/implementation-plans/${planId}`, planData);
+      toast.success('Implementation plan updated');
+      fetchPlans();
+      // Update the selected plan with new data
+      setSelectedPlan((prev) => prev ? { ...prev, ...planData } : null);
+    } catch (error: any) {
+      console.error('Error updating plan:', error);
+      toast.error(error.response?.data?.error || 'Failed to update plan');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleCreateChangeRequest = async (planId: string) => {
     setSubmitting(true);
     try {
@@ -250,6 +266,7 @@ export default function ImplementationPlanPanel({
             onStartImplementation={handleStartImplementation}
             onCompleteImplementation={handleCompleteImplementation}
             onCreateChangeRequest={handleCreateChangeRequest}
+            onUpdatePlan={handleUpdatePlan}
             submitting={submitting}
           />
         )}
@@ -635,7 +652,7 @@ function CreatePlanModal({
   );
 }
 
-// Plan Detail Modal
+// Plan Detail Modal with Edit Functionality
 function PlanDetailModal({
   plan,
   onClose,
@@ -643,6 +660,7 @@ function PlanDetailModal({
   onStartImplementation,
   onCompleteImplementation,
   onCreateChangeRequest,
+  onUpdatePlan,
   submitting,
 }: {
   plan: ImplementationPlan;
@@ -651,20 +669,81 @@ function PlanDetailModal({
   onStartImplementation: (planId: string) => void;
   onCompleteImplementation: (planId: string) => void;
   onCreateChangeRequest: (planId: string) => void;
+  onUpdatePlan: (planId: string, data: any) => Promise<void>;
   submitting: boolean;
 }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editData, setEditData] = useState({
+    title: plan.title,
+    description: plan.description,
+    rootCauseAnalysis: plan.root_cause_analysis || '',
+    implementationSteps: plan.implementation_steps?.map((s: any) =>
+      typeof s === 'string' ? s : s.description || String(s)
+    ) || [''],
+    estimatedEffortHours: plan.estimated_effort_hours?.toString() || '',
+    riskLevel: plan.risk_level || 'medium',
+    mitigationStrategy: plan.mitigation_strategy || '',
+    rollbackPlan: plan.rollback_plan || '',
+  });
+
+  const canEdit = plan.status === 'draft' || plan.status === 'ai_needs_revision';
   const canSubmit = plan.status === 'draft' || plan.status === 'ai_needs_revision';
   const canStart = plan.status === 'ai_approved';
   const canComplete = plan.status === 'implementing';
   const hasAIFeedback = plan.ai_evaluation;
 
-  // Score-based workflow:
-  // - Scores under 50: Must be revised (show warning, only allow resubmit)
-  // - Scores 50+: Can create change request for CAB approval
   const score = plan.ai_evaluation_score || 0;
   const canCreateChangeRequest = hasAIFeedback && score >= 50 &&
     (plan.status === 'ai_approved' || plan.status === 'ai_needs_revision');
   const mustRevise = hasAIFeedback && score < 50 && score > 0;
+
+  const handleAddStep = () => {
+    setEditData({
+      ...editData,
+      implementationSteps: [...editData.implementationSteps, ''],
+    });
+  };
+
+  const handleStepChange = (index: number, value: string) => {
+    const newSteps = [...editData.implementationSteps];
+    newSteps[index] = value;
+    setEditData({ ...editData, implementationSteps: newSteps });
+  };
+
+  const handleRemoveStep = (index: number) => {
+    const newSteps = editData.implementationSteps.filter((_: string, i: number) => i !== index);
+    setEditData({ ...editData, implementationSteps: newSteps.length > 0 ? newSteps : [''] });
+  };
+
+  const handleSave = async () => {
+    await onUpdatePlan(plan.id, {
+      title: editData.title,
+      description: editData.description,
+      rootCauseAnalysis: editData.rootCauseAnalysis || null,
+      implementationSteps: editData.implementationSteps.filter((s: string) => s.trim()),
+      estimatedEffortHours: editData.estimatedEffortHours ? parseInt(editData.estimatedEffortHours) : null,
+      riskLevel: editData.riskLevel,
+      mitigationStrategy: editData.mitigationStrategy || null,
+      rollbackPlan: editData.rollbackPlan || null,
+    });
+    setIsEditing(false);
+  };
+
+  const handleCancelEdit = () => {
+    setEditData({
+      title: plan.title,
+      description: plan.description,
+      rootCauseAnalysis: plan.root_cause_analysis || '',
+      implementationSteps: plan.implementation_steps?.map((s: any) =>
+        typeof s === 'string' ? s : s.description || String(s)
+      ) || [''],
+      estimatedEffortHours: plan.estimated_effort_hours?.toString() || '',
+      riskLevel: plan.risk_level || 'medium',
+      mitigationStrategy: plan.mitigation_strategy || '',
+      rollbackPlan: plan.rollback_plan || '',
+    });
+    setIsEditing(false);
+  };
 
   return (
     <div
@@ -682,17 +761,26 @@ function PlanDetailModal({
               <span className={`text-xs px-2 py-1 rounded ${STATUS_COLORS[plan.status]}`}>
                 {STATUS_LABELS[plan.status]}
               </span>
+              {isEditing && (
+                <span className="text-xs px-2 py-1 rounded bg-yellow-500 text-yellow-900">
+                  Editing
+                </span>
+              )}
             </div>
-            <h2 className="text-xl font-bold">{plan.title}</h2>
+            {isEditing ? (
+              <input
+                type="text"
+                value={editData.title}
+                onChange={(e) => setEditData({ ...editData, title: e.target.value })}
+                className="text-xl font-bold mt-1 bg-purple-600 border border-purple-400 rounded px-2 py-1 w-full"
+              />
+            ) : (
+              <h2 className="text-xl font-bold">{plan.title}</h2>
+            )}
           </div>
           <button onClick={onClose} className="text-white hover:text-gray-200">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
@@ -702,8 +790,7 @@ function PlanDetailModal({
           {plan.incident_number && (
             <div className="bg-blue-50 rounded-lg p-3 mb-4">
               <p className="text-sm text-blue-700">
-                <span className="font-semibold">Linked to:</span> {plan.incident_number} -{' '}
-                {plan.incident_title}
+                <span className="font-semibold">Linked to:</span> {plan.incident_number} - {plan.incident_title}
               </p>
             </div>
           )}
@@ -712,62 +799,50 @@ function PlanDetailModal({
           {hasAIFeedback && (
             <div className={`rounded-lg p-4 mb-4 ${
               plan.status === 'ai_approved' ? 'bg-green-50' :
-              plan.status === 'ai_rejected' ? 'bg-red-50' :
-              'bg-yellow-50'
+              plan.status === 'ai_rejected' ? 'bg-red-50' : 'bg-yellow-50'
             }`}>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold text-gray-800">AI Evaluation</h3>
                 {plan.ai_evaluation_score !== null && (
                   <span className={`text-lg font-bold ${
                     (plan.ai_evaluation_score || 0) >= 70 ? 'text-green-600' :
-                    (plan.ai_evaluation_score || 0) >= 50 ? 'text-yellow-600' :
-                    'text-red-600'
+                    (plan.ai_evaluation_score || 0) >= 50 ? 'text-yellow-600' : 'text-red-600'
                   }`}>
                     Score: {plan.ai_evaluation_score}/100
                   </span>
                 )}
               </div>
-
               {plan.ai_evaluation.overallFeedback && (
                 <p className="text-gray-700 mb-3">{plan.ai_evaluation.overallFeedback}</p>
               )}
-
               {plan.ai_evaluation.strengths?.length > 0 && (
                 <div className="mb-2">
                   <p className="text-sm font-medium text-green-700">Strengths:</p>
                   <ul className="list-disc list-inside text-sm text-gray-600">
-                    {plan.ai_evaluation.strengths.map((s: string, i: number) => (
-                      <li key={i}>{s}</li>
-                    ))}
+                    {plan.ai_evaluation.strengths.map((s: string, i: number) => <li key={i}>{s}</li>)}
                   </ul>
                 </div>
               )}
-
               {plan.ai_evaluation.suggestions?.length > 0 && (
                 <div className="mb-2">
                   <p className="text-sm font-medium text-yellow-700">Suggestions:</p>
                   <ul className="list-disc list-inside text-sm text-gray-600">
-                    {plan.ai_evaluation.suggestions.map((s: string, i: number) => (
-                      <li key={i}>{s}</li>
-                    ))}
+                    {plan.ai_evaluation.suggestions.map((s: string, i: number) => <li key={i}>{s}</li>)}
                   </ul>
                 </div>
               )}
-
               {plan.ai_evaluation.criticalIssues?.length > 0 && (
                 <div>
                   <p className="text-sm font-medium text-red-700">Critical Issues:</p>
                   <ul className="list-disc list-inside text-sm text-gray-600">
-                    {plan.ai_evaluation.criticalIssues.map((s: string, i: number) => (
-                      <li key={i}>{s}</li>
-                    ))}
+                    {plan.ai_evaluation.criticalIssues.map((s: string, i: number) => <li key={i}>{s}</li>)}
                   </ul>
                 </div>
               )}
             </div>
           )}
 
-          {/* Plan Status Message */}
+          {/* Status Messages */}
           {plan.status === 'ai_reviewing' && (
             <div className="bg-blue-50 rounded-lg p-4 mb-4 flex items-center gap-3">
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-700"></div>
@@ -775,7 +850,6 @@ function PlanDetailModal({
             </div>
           )}
 
-          {/* Score-based workflow guidance */}
           {mustRevise && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
               <div className="flex items-center gap-2 text-red-700 font-semibold mb-1">
@@ -783,7 +857,7 @@ function PlanDetailModal({
               </div>
               <p className="text-red-600 text-sm">
                 Your plan scored {score}/100. Plans with scores under 50 must be revised before
-                they can be submitted as a Change Request. Please address the feedback and resubmit.
+                they can be submitted as a Change Request. Click "Edit Plan" to make changes.
               </p>
             </div>
           )}
@@ -800,112 +874,221 @@ function PlanDetailModal({
             </div>
           )}
 
-          {/* Plan Details */}
-          <div className="space-y-4">
-            <div>
-              <h4 className="text-sm font-medium text-gray-500">Description</h4>
-              <p className="text-gray-800">{plan.description}</p>
-            </div>
-
-            {plan.root_cause_analysis && (
+          {/* Plan Details - View/Edit Mode */}
+          {isEditing ? (
+            <div className="space-y-4">
               <div>
-                <h4 className="text-sm font-medium text-gray-500">Root Cause Analysis</h4>
-                <p className="text-gray-800">{plan.root_cause_analysis}</p>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
+                <textarea
+                  value={editData.description}
+                  onChange={(e) => setEditData({ ...editData, description: e.target.value })}
+                  rows={3}
+                  className="w-full border border-gray-300 rounded px-3 py-2"
+                />
               </div>
-            )}
 
-            {plan.implementation_steps && plan.implementation_steps.length > 0 && (
               <div>
-                <h4 className="text-sm font-medium text-gray-500">Implementation Steps</h4>
-                <ol className="list-decimal list-inside text-gray-800 space-y-1">
-                  {plan.implementation_steps.map((step: any, i: number) => (
-                    <li key={i}>{typeof step === 'string' ? step : step.description || step}</li>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Root Cause Analysis</label>
+                <textarea
+                  value={editData.rootCauseAnalysis}
+                  onChange={(e) => setEditData({ ...editData, rootCauseAnalysis: e.target.value })}
+                  rows={2}
+                  className="w-full border border-gray-300 rounded px-3 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Implementation Steps</label>
+                <div className="space-y-2">
+                  {editData.implementationSteps.map((step: string, index: number) => (
+                    <div key={index} className="flex gap-2">
+                      <span className="text-gray-500 py-2 w-6">{index + 1}.</span>
+                      <input
+                        type="text"
+                        value={step}
+                        onChange={(e) => handleStepChange(index, e.target.value)}
+                        className="flex-1 border border-gray-300 rounded px-3 py-2"
+                      />
+                      <button type="button" onClick={() => handleRemoveStep(index)} className="text-red-500 px-2">x</button>
+                    </div>
                   ))}
-                </ol>
+                  <button type="button" onClick={handleAddStep} className="text-sm text-hawk-purple hover:text-purple-800">
+                    + Add Step
+                  </button>
+                </div>
               </div>
-            )}
 
-            <div className="grid grid-cols-2 gap-4">
-              {plan.estimated_effort_hours && (
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <h4 className="text-sm font-medium text-gray-500">Estimated Effort</h4>
-                  <p className="text-gray-800">{plan.estimated_effort_hours} hours</p>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Estimated Effort (hours)</label>
+                  <input
+                    type="number"
+                    value={editData.estimatedEffortHours}
+                    onChange={(e) => setEditData({ ...editData, estimatedEffortHours: e.target.value })}
+                    className="w-full border border-gray-300 rounded px-3 py-2"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Risk Level</label>
+                  <select
+                    value={editData.riskLevel}
+                    onChange={(e) => setEditData({ ...editData, riskLevel: e.target.value })}
+                    className="w-full border border-gray-300 rounded px-3 py-2"
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="critical">Critical</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mitigation Strategy</label>
+                <textarea
+                  value={editData.mitigationStrategy}
+                  onChange={(e) => setEditData({ ...editData, mitigationStrategy: e.target.value })}
+                  rows={2}
+                  className="w-full border border-gray-300 rounded px-3 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Rollback Plan</label>
+                <textarea
+                  value={editData.rollbackPlan}
+                  onChange={(e) => setEditData({ ...editData, rollbackPlan: e.target.value })}
+                  rows={2}
+                  className="w-full border border-gray-300 rounded px-3 py-2"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <h4 className="text-sm font-medium text-gray-500">Description</h4>
+                <p className="text-gray-800">{plan.description}</p>
+              </div>
+              {plan.root_cause_analysis && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500">Root Cause Analysis</h4>
+                  <p className="text-gray-800">{plan.root_cause_analysis}</p>
                 </div>
               )}
-              <div>
-                <h4 className="text-sm font-medium text-gray-500">Risk Level</h4>
-                <p className={`font-semibold ${
-                  plan.risk_level === 'low' ? 'text-green-600' :
-                  plan.risk_level === 'medium' ? 'text-yellow-600' :
-                  plan.risk_level === 'high' ? 'text-orange-600' :
-                  'text-red-600'
-                }`}>
-                  {plan.risk_level.charAt(0).toUpperCase() + plan.risk_level.slice(1)}
-                </p>
+              {plan.implementation_steps && plan.implementation_steps.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500">Implementation Steps</h4>
+                  <ol className="list-decimal list-inside text-gray-800 space-y-1">
+                    {plan.implementation_steps.map((step: any, i: number) => (
+                      <li key={i}>{typeof step === 'string' ? step : step.description || step}</li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-4">
+                {plan.estimated_effort_hours && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500">Estimated Effort</h4>
+                    <p className="text-gray-800">{plan.estimated_effort_hours} hours</p>
+                  </div>
+                )}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500">Risk Level</h4>
+                  <p className={`font-semibold ${
+                    plan.risk_level === 'low' ? 'text-green-600' :
+                    plan.risk_level === 'medium' ? 'text-yellow-600' :
+                    plan.risk_level === 'high' ? 'text-orange-600' : 'text-red-600'
+                  }`}>
+                    {plan.risk_level.charAt(0).toUpperCase() + plan.risk_level.slice(1)}
+                  </p>
+                </div>
               </div>
+              {plan.mitigation_strategy && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500">Mitigation Strategy</h4>
+                  <p className="text-gray-800">{plan.mitigation_strategy}</p>
+                </div>
+              )}
+              {plan.rollback_plan && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500">Rollback Plan</h4>
+                  <p className="text-gray-800">{plan.rollback_plan}</p>
+                </div>
+              )}
             </div>
-
-            {plan.mitigation_strategy && (
-              <div>
-                <h4 className="text-sm font-medium text-gray-500">Mitigation Strategy</h4>
-                <p className="text-gray-800">{plan.mitigation_strategy}</p>
-              </div>
-            )}
-
-            {plan.rollback_plan && (
-              <div>
-                <h4 className="text-sm font-medium text-gray-500">Rollback Plan</h4>
-                <p className="text-gray-800">{plan.rollback_plan}</p>
-              </div>
-            )}
-          </div>
+          )}
 
           {/* Action Buttons */}
-          <div className="flex justify-end gap-3 pt-6 mt-6 border-t">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50"
-            >
-              Close
-            </button>
-
-            {canSubmit && (
-              <button
-                onClick={() => onSubmitForReview(plan.id)}
-                disabled={submitting}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400"
-              >
-                {submitting ? 'Submitting...' : 'Submit for AI Review'}
-              </button>
-            )}
-
-            {canCreateChangeRequest && (
-              <button
-                onClick={() => onCreateChangeRequest(plan.id)}
-                disabled={submitting}
-                className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:bg-gray-400"
-              >
-                {submitting ? 'Creating...' : 'Create Change Request'}
-              </button>
-            )}
-
-            {canStart && (
-              <button
-                onClick={() => onStartImplementation(plan.id)}
-                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-              >
-                Start Implementation
-              </button>
-            )}
-
-            {canComplete && (
-              <button
-                onClick={() => onCompleteImplementation(plan.id)}
-                className="px-4 py-2 bg-hawk-purple text-white rounded hover:bg-purple-800"
-              >
-                Complete Implementation
-              </button>
-            )}
+          <div className="flex justify-between pt-6 mt-6 border-t">
+            <div>
+              {canEdit && !isEditing && (
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600"
+                >
+                  Edit Plan
+                </button>
+              )}
+            </div>
+            <div className="flex gap-3">
+              {isEditing ? (
+                <>
+                  <button
+                    onClick={handleCancelEdit}
+                    className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    disabled={submitting}
+                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400"
+                  >
+                    {submitting ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button onClick={onClose} className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50">
+                    Close
+                  </button>
+                  {canSubmit && (
+                    <button
+                      onClick={() => onSubmitForReview(plan.id)}
+                      disabled={submitting}
+                      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400"
+                    >
+                      {submitting ? 'Submitting...' : 'Submit for AI Review'}
+                    </button>
+                  )}
+                  {canCreateChangeRequest && (
+                    <button
+                      onClick={() => onCreateChangeRequest(plan.id)}
+                      disabled={submitting}
+                      className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:bg-gray-400"
+                    >
+                      {submitting ? 'Creating...' : 'Create Change Request'}
+                    </button>
+                  )}
+                  {canStart && (
+                    <button
+                      onClick={() => onStartImplementation(plan.id)}
+                      className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                    >
+                      Start Implementation
+                    </button>
+                  )}
+                  {canComplete && (
+                    <button
+                      onClick={() => onCompleteImplementation(plan.id)}
+                      className="px-4 py-2 bg-hawk-purple text-white rounded hover:bg-purple-800"
+                    >
+                      Complete Implementation
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
