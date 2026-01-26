@@ -1,6 +1,7 @@
 import { Pool } from 'pg';
 import logger from '../utils/logger';
-import { ClaudeService } from './claude.service';
+import { aiService } from './ai';
+import { IAIService } from './ai/aiService.interface';
 
 interface PIRSubmission {
   whatHappened: string;
@@ -46,11 +47,11 @@ interface PIRData {
  */
 export class PIRService {
   private pool: Pool;
-  private claudeService: ClaudeService;
+  private ai: IAIService;
 
   constructor(pool: Pool) {
     this.pool = pool;
-    this.claudeService = new ClaudeService();
+    this.ai = aiService;
   }
 
   /**
@@ -215,7 +216,7 @@ Grade this PIR and return a JSON object with this exact structure:
 Be constructive but honest. Focus on helping students learn ITSM best practices.
 Return ONLY the JSON object, no other text.`;
 
-      const response = await this.claudeService.sendMessageJSON<PIRGrade>({
+      const response = await this.ai.sendMessageJSON<PIRGrade>({
         systemPrompt: 'You are an ITSM instructor grading student submissions. Always return valid JSON.',
         userPrompt: prompt,
         temperature: 0.7,

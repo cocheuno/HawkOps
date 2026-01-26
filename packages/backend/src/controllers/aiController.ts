@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { claudeService } from '../services/claudeService';
+import { aiService } from '../services/ai';
 import { getPool } from '../config/database';
 import logger from '../utils/logger';
 
@@ -22,7 +22,7 @@ export class AIController {
 
     try {
       // Generate scenarios using AI
-      const scenarios = await claudeService.generateScenarios({
+      const scenarios = await aiService.generateScenarios({
         domains,
         additionalContext,
         difficultyLevel: difficultyLevel || 5,
@@ -109,7 +109,7 @@ export class AIController {
       }
 
       // Generate documents using AI
-      const aiDocuments = await claudeService.generateDocuments({
+      const aiDocuments = await aiService.generateDocuments({
         scenario,
         gameName: game.name,
         teams: teams.map(t => ({ id: t.id, name: t.name, role: t.role })),

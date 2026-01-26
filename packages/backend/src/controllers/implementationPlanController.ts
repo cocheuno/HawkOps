@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { getPool } from '../config/database';
-import { claudeService } from '../services/claudeService';
+import { aiService } from '../services/ai';
 import logger from '../utils/logger';
 
 export class ImplementationPlanController {
@@ -233,7 +233,7 @@ Provide your evaluation as JSON:
 
 Remember: Your feedback will be shown directly to students to help them improve. Be helpful and specific!`;
 
-      const aiResponse = await claudeService.generateScenarioResponse(prompt, 'plan_evaluation');
+      const aiResponse = await aiService.generateScenarioResponse(prompt, 'plan_evaluation');
 
       // Parse AI response
       let evaluation;
