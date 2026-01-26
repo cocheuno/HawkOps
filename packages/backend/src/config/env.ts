@@ -20,9 +20,16 @@ export const env = {
   // Session
   SESSION_SECRET: process.env.SESSION_SECRET || 'change-this-in-production',
 
+  // AI Provider: 'claude' (default) or 'gemini'
+  AI_PROVIDER: (process.env.AI_PROVIDER || 'claude') as 'claude' | 'gemini',
+
   // Claude AI
   ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || '',
   CLAUDE_MODEL: process.env.CLAUDE_MODEL || 'claude-3-haiku-20240307',
+
+  // Gemini AI
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
+  GEMINI_MODEL: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
 
   // Email (SMTP)
   SMTP_HOST: process.env.SMTP_HOST || 'smtp.gmail.com',
@@ -51,6 +58,10 @@ for (const envVar of requiredEnvVars) {
   }
 }
 
-if (!process.env.ANTHROPIC_API_KEY) {
+const aiProvider = process.env.AI_PROVIDER || 'claude';
+if (aiProvider === 'claude' && !process.env.ANTHROPIC_API_KEY) {
   console.warn('Warning: ANTHROPIC_API_KEY is not set. Claude AI features will not work.');
+}
+if (aiProvider === 'gemini' && !process.env.GEMINI_API_KEY) {
+  console.warn('Warning: GEMINI_API_KEY is not set. Gemini AI features will not work.');
 }

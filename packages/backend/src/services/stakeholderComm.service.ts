@@ -1,6 +1,7 @@
 import { Pool } from 'pg';
 import logger from '../utils/logger';
-import { ClaudeService } from './claude.service';
+import { aiService } from './ai';
+import { IAIService } from './ai/aiService.interface';
 
 interface StakeholderProfile {
   type: 'executive' | 'customer' | 'media' | 'regulator' | 'vendor';
@@ -72,11 +73,11 @@ const STAKEHOLDER_PROFILES: Record<string, StakeholderProfile[]> = {
  */
 export class StakeholderCommService {
   private pool: Pool;
-  private claudeService: ClaudeService;
+  private ai: IAIService;
 
   constructor(pool: Pool) {
     this.pool = pool;
-    this.claudeService = new ClaudeService();
+    this.ai = aiService;
   }
 
   /**
@@ -211,7 +212,7 @@ Return a JSON object:
 Return ONLY the JSON object.`;
 
     try {
-      const response = await this.claudeService.sendMessageJSON<{ text: string; urgency: string; sentiment: string }>({
+      const response = await this.ai.sendMessageJSON<{ text: string; urgency: string; sentiment: string }>({
         systemPrompt: 'You are simulating a stakeholder in an IT incident management simulation. Always return valid JSON.',
         userPrompt: prompt,
         temperature: 0.8,
@@ -379,7 +380,7 @@ Grade the response and return a JSON object:
 
 Return ONLY the JSON object.`;
 
-      const response = await this.claudeService.sendMessageJSON<any>({
+      const response = await this.ai.sendMessageJSON<any>({
         systemPrompt: 'You are an ITSM instructor evaluating stakeholder communication responses. Always return valid JSON.',
         userPrompt: prompt,
         temperature: 0.7,

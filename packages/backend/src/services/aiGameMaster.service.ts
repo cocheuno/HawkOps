@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import { claudeService } from './claude.service';
+import { aiService } from './ai';
 import logger from '../utils/logger';
 
 /**
@@ -81,7 +81,7 @@ export class AIGameMasterService {
 
     // 3. Call Claude
     const startTime = Date.now();
-    const result = await claudeService.sendMessageJSON<GeneratedIncident>({
+    const result = await aiService.sendMessageJSON<GeneratedIncident>({
       systemPrompt,
       userPrompt,
       maxTokens: 1500,
