@@ -1,8 +1,21 @@
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 
 // Load environment variables from root .env file
-dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
+const envPath = path.resolve(__dirname, '../../../../.env');
+const envResult = dotenv.config({ path: envPath });
+if (envResult.error) {
+  console.warn(`[env] Failed to load .env from ${envPath}: ${envResult.error.message}`);
+  // Fallback: try loading from process.cwd()
+  const cwdEnvPath = path.resolve(process.cwd(), '.env');
+  if (fs.existsSync(cwdEnvPath)) {
+    dotenv.config({ path: cwdEnvPath });
+    console.info(`[env] Loaded .env from fallback path: ${cwdEnvPath}`);
+  }
+} else {
+  console.info(`[env] Loaded .env from ${envPath}`);
+}
 
 export const env = {
   // Server
@@ -62,6 +75,7 @@ for (const envVar of requiredEnvVars) {
 }
 
 const aiProvider = process.env.AI_PROVIDER || 'claude';
+console.info(`[env] AI_PROVIDER=${aiProvider}, model=${aiProvider === 'gemini' ? (process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite') : (process.env.CLAUDE_MODEL || 'claude-3-haiku-20240307')}`);
 if (aiProvider === 'claude' && !process.env.ANTHROPIC_API_KEY) {
   console.warn('Warning: ANTHROPIC_API_KEY is not set. Claude AI features will not work.');
 }
