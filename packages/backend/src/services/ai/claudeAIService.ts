@@ -207,8 +207,8 @@ Each object should have these exact fields: title, description, learningObjectiv
 
     const response = await this.client.messages.create({
       model: this.model,
-      max_tokens: 4000,
-      system: 'You are an ITSM expert and instructional designer creating simulation scenarios for professional training.',
+      max_tokens: 8192,
+      system: 'You are an ITSM expert and instructional designer creating simulation scenarios for professional training. Provide rich, detailed descriptions that paint a vivid picture of each scenario situation.',
       messages: [
         { role: 'user', content: prompt },
       ],
@@ -242,29 +242,76 @@ Each object should have these exact fields: title, description, learningObjectiv
     const { scenario, gameName, teams, duration, rounds } = params;
     const teamList = teams.map(t => `- ${t.name} (${t.role})`).join('\n');
 
-    const prompt = `Generate simulation documents for: ${gameName}
+    const prompt = `Generate highly detailed simulation documents for: ${gameName}
 
-Scenario: ${scenario.title}
-Domains: ${scenario.primaryDomain}, ${scenario.secondaryDomains.join(', ')}
-Difficulty: ${scenario.difficulty}/10 | Duration: ${duration}min | Rounds: ${rounds}
-Teams: ${teamList}
+SCENARIO DETAILS:
+- Title: ${scenario.title}
+- Description: ${scenario.description || 'N/A'}
+- Primary Domain: ${scenario.primaryDomain}
+- Secondary Domains: ${scenario.secondaryDomains.join(', ')}
+- Key Challenges: ${scenario.keyChallenges?.join('; ') || 'N/A'}
+- Learning Objectives: ${scenario.learningObjectives?.join('; ') || 'N/A'}
+- Difficulty: ${scenario.difficulty}/10
+- Duration: ${duration} minutes
+- Rounds: ${rounds}
 
-Create these documents (be concise but complete):
+TEAMS:
+${teamList}
 
-1. Instructor Playbook (instructor_playbook): Timeline, incident injection plan, evaluation criteria, answer key
-2. General Briefing (general_briefing): Background, objectives, rules, timeline, resources
-3. Team Packets (team_packet, one per team): Role, resources, metrics, challenges
+CRITICAL INSTRUCTION: Every document must be EXTENSIVELY DETAILED. Do NOT summarize or abbreviate. Each document should be thorough enough that a participant could use it as their sole reference throughout the entire simulation. Aim for at least 800-1200 words per document.
 
-Use markdown. Keep content focused and practical.
+Generate these documents:
 
-Return ONLY valid JSON array: [{documentType, title, content, visibility, teamId}]
-- visibility: "instructor_only" for playbook, "all_participants" for general, "team_only" for team packets
-- teamId: null for general, exact team name for team packets`;
+1. INSTRUCTOR PLAYBOOK (document_type: "instructor_playbook"):
+   This is the most important document. It must include ALL of the following in rich detail:
+   - **Simulation Overview**: Full scenario narrative, what the organization is facing, business context, and stakeholders involved.
+   - **Detailed Timeline**: Round-by-round breakdown of the ${rounds}-round, ${duration}-minute simulation. For each round, specify:
+     * Suggested incidents to inject (at least 2-3 per round with descriptions)
+     * Expected team actions and decision points
+     * Escalation triggers and cascading failure scenarios
+   - **Incident Injection Plan**: A library of at least 8-10 pre-planned incidents with full descriptions, priority levels (P1/P2/P3), affected services, expected resolution approaches, SLA targets, and which team should handle each.
+   - **Evaluation Rubric**: Detailed scoring criteria for each team role:
+     * Service Desk: Ticket quality, communication, triage accuracy, SLA adherence
+     * Technical Operations: Diagnostic approach, resolution quality, documentation, root cause analysis
+     * Management/CAB: Decision quality, risk assessment, resource allocation, stakeholder communication
+   - **Answer Key / Expected Outcomes**: What good responses look like for each planned incident. Include ideal resolution steps, common mistakes to watch for, and teaching moments.
+   - **Facilitation Notes**: Tips for pacing, when to increase pressure, how to handle teams that are stuck, and discussion prompts for debriefing.
+
+2. GENERAL BRIEFING (document_type: "general_briefing"):
+   Must include ALL of the following in detail:
+   - **Scenario Background**: The full story - what organization they work for, what happened, current state of affairs, business impact. Write this as a realistic narrative (at least 3-4 paragraphs).
+   - **Organization Profile**: Company name, industry, size, key systems, IT infrastructure overview, and recent history.
+   - **Mission Objectives**: Clear, numbered objectives each team must accomplish. Be specific about what success looks like.
+   - **Simulation Rules**: Complete rules of engagement including how to log incidents, escalation procedures, communication protocols, change request procedures, and scoring mechanics.
+   - **Timeline & Schedule**: Round-by-round schedule with time allocations and milestones.
+   - **Available Resources**: Systems, tools, budget constraints, staffing levels, and vendor contacts available to teams.
+   - **Key Stakeholders**: Named stakeholders (CEO, CTO, CISO, customers, regulators) with their concerns and expectations.
+   - **Success Metrics**: How teams will be evaluated, KPIs, SLA targets, and scoring breakdown.
+
+3. TEAM PACKETS (document_type: "team_packet", one per team):
+   Each team packet must include ALL of the following:
+   - **Team Role Description**: Detailed explanation of the team's responsibilities, authority level, and scope within this specific scenario.
+   - **Team-Specific Objectives**: 5-7 specific, measurable objectives tailored to this team's role.
+   - **Starting Situation**: What the team knows at the start, their current backlog, and immediate priorities.
+   - **Available Resources**: Team-specific tools, access levels, budget allocation, staffing, and vendor relationships.
+   - **Key Metrics & SLAs**: Specific SLA targets, KPIs, and performance thresholds this team must meet.
+   - **Decision Authority**: What decisions this team can make independently vs. what requires escalation or CAB approval.
+   - **Communication Protocols**: Who to contact for what, escalation paths, and reporting requirements.
+   - **Potential Challenges**: 4-6 scenario-specific challenges this team should prepare for.
+   - **Quick Reference**: Key procedures, contact lists, and system access information.
+
+Use rich markdown formatting with headers, bullet points, numbered lists, bold text, and tables where appropriate.
+
+Return ONLY a valid JSON array: [{documentType, title, content, visibility, teamId}]
+- documentType: "instructor_playbook", "general_briefing", or "team_packet"
+- visibility: "instructor_only" for playbook, "all_participants" for general briefing, "team_only" for team packets
+- teamId: null for playbook and general briefing, exact team name string for team packets
+- content: Full markdown text of the document`;
 
     const response = await this.client.messages.create({
       model: this.model,
-      max_tokens: 4096,
-      system: 'You are an expert ITSM instructor creating detailed simulation materials.',
+      max_tokens: 16384,
+      system: `You are an expert ITSM instructor and simulation designer with 20+ years of experience creating professional training materials. You create exhaustively detailed, actionable simulation documents that serve as complete reference materials. Never abbreviate, summarize, or use placeholder text. Every section must be fully fleshed out with specific, realistic details relevant to the scenario.`,
       messages: [
         { role: 'user', content: prompt },
       ],

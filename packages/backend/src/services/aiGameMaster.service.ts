@@ -170,10 +170,10 @@ export class AIGameMasterService {
         [gameId]
       );
 
-      // Get scenario briefing for additional context
+      // Get general briefing for additional context
       const briefingResult = await client.query(
         `SELECT content FROM simulation_documents
-         WHERE game_id = $1 AND document_type = 'scenario_briefing'
+         WHERE game_id = $1 AND document_type = 'general_briefing'
          AND status = 'published'
          ORDER BY created_at DESC LIMIT 1`,
         [gameId]
@@ -282,22 +282,23 @@ Learning Objectives:
 ${sc.learningObjectives?.map((obj) => `  - ${obj}`).join('\n') || '  - Not specified'}`;
     }
 
-    // Include playbook excerpts for context alignment (truncated for prompt size)
+    // Include playbook and briefing for context alignment
+    // Use generous limits so the AI has full context to generate scenario-consistent incidents
     let playbookSection = '';
     if (context.instructorPlaybook) {
-      const playbookExcerpt = context.instructorPlaybook.substring(0, 2000);
+      const playbookExcerpt = context.instructorPlaybook.substring(0, 8000);
       playbookSection = `
-INSTRUCTOR PLAYBOOK CONTEXT (Incidents should align with planned scenarios):
-${playbookExcerpt}${context.instructorPlaybook.length > 2000 ? '...[truncated]' : ''}
+INSTRUCTOR PLAYBOOK CONTEXT (CRITICAL - Incidents MUST align with the planned scenarios and incident injection plan described here):
+${playbookExcerpt}${context.instructorPlaybook.length > 8000 ? '...[truncated]' : ''}
 `;
     }
 
     let briefingSection = '';
     if (context.scenarioBriefing) {
-      const briefingExcerpt = context.scenarioBriefing.substring(0, 1500);
+      const briefingExcerpt = context.scenarioBriefing.substring(0, 6000);
       briefingSection = `
-SCENARIO BRIEFING:
-${briefingExcerpt}${context.scenarioBriefing.length > 1500 ? '...[truncated]' : ''}
+SCENARIO BRIEFING (Incidents must be consistent with this scenario narrative and the organization described):
+${briefingExcerpt}${context.scenarioBriefing.length > 6000 ? '...[truncated]' : ''}
 `;
     }
 
