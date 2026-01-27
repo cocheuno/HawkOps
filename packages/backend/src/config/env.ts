@@ -40,6 +40,9 @@ export const env = {
   EMAIL_FROM: process.env.EMAIL_FROM || 'noreply@hawkops.edu',
   EMAIL_FROM_NAME: process.env.EMAIL_FROM_NAME || 'HawkOps ITSM Simulation',
 
+  // Instructor
+  INSTRUCTOR_EMAIL: process.env.INSTRUCTOR_EMAIL || 'caronet@uww.edu',
+
   // Game Configuration
   GAME_DURATION_MINUTES: parseInt(process.env.GAME_DURATION_MINUTES || '75', 10),
   MAX_TEAMS: parseInt(process.env.MAX_TEAMS || '3', 10),

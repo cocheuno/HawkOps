@@ -94,6 +94,19 @@ interface SLAStatus {
   atRisk: number;
 }
 
+interface StudentEvaluation {
+  id: string;
+  studentName: string;
+  studentEmail: string;
+  teamName: string;
+  teamRole: string;
+  score: number | null;
+  evaluation: string;
+  strengths: string[];
+  improvements: string[];
+  actionsSummary: any;
+}
+
 export default function InstructorDashboardPage() {
   const { gameId } = useParams();
   const [gameState, setGameState] = useState<GameState | null>(null);
@@ -104,6 +117,12 @@ export default function InstructorDashboardPage() {
   const [showServiceHealth, setShowServiceHealth] = useState(false);
   const [initializingServices, setInitializingServices] = useState(false);
   const [startingGame, setStartingGame] = useState(false);
+  const [aiModelInfo, setAiModelInfo] = useState<{ provider: string; model: string } | null>(null);
+  const [pausingGame, setPausingGame] = useState(false);
+  const [endingGame, setEndingGame] = useState(false);
+  const [evaluations, setEvaluations] = useState<StudentEvaluation[]>([]);
+  const [generatingEvals, setGeneratingEvals] = useState(false);
+  const [showEvaluations, setShowEvaluations] = useState(false);
 
   const fetchGameState = async () => {
     try {
@@ -189,8 +208,88 @@ export default function InstructorDashboardPage() {
     }
   };
 
+  const fetchAIModelInfo = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/config/ai-info`);
+      setAiModelInfo(response.data);
+    } catch (error) {
+      console.error('Error fetching AI info:', error);
+    }
+  };
+
+  const handlePauseGame = async () => {
+    if (!gameId) return;
+    setPausingGame(true);
+    try {
+      await axios.post(`${API_URL}/games/${gameId}/pause`);
+      toast.success('Game paused. Students can rejoin when resumed.');
+      fetchGameState();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to pause game');
+    } finally {
+      setPausingGame(false);
+    }
+  };
+
+  const handleResumeGame = async () => {
+    if (!gameId) return;
+    setPausingGame(true);
+    try {
+      await axios.post(`${API_URL}/games/${gameId}/resume`);
+      toast.success('Game resumed!');
+      fetchGameState();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to resume game');
+    } finally {
+      setPausingGame(false);
+    }
+  };
+
+  const handleEndGame = async () => {
+    if (!gameId) return;
+    if (!window.confirm('Are you sure you want to end this game? This cannot be undone.')) return;
+    setEndingGame(true);
+    try {
+      await axios.post(`${API_URL}/games/${gameId}/end`);
+      toast.success('Game ended.');
+      fetchGameState();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to end game');
+    } finally {
+      setEndingGame(false);
+    }
+  };
+
+  const handleGenerateEvaluations = async () => {
+    if (!gameId) return;
+    setGeneratingEvals(true);
+    try {
+      const response = await axios.post(`${API_URL}/instructor/games/${gameId}/evaluate-students`);
+      setEvaluations(response.data.evaluations || []);
+      setShowEvaluations(true);
+      toast.success('Student evaluations generated!');
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to generate evaluations');
+    } finally {
+      setGeneratingEvals(false);
+    }
+  };
+
+  const fetchExistingEvaluations = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/instructor/games/${gameId}/evaluations`);
+      if (response.data.evaluations?.length > 0) {
+        setEvaluations(response.data.evaluations);
+      }
+    } catch (error) {
+      // Evaluations may not exist yet
+    }
+  };
+
   useEffect(() => {
     fetchGameState();
+    fetchAIModelInfo();
+    fetchExistingEvaluations();
     // Poll for updates every 5 seconds
     const interval = setInterval(fetchGameState, 5000);
     return () => clearInterval(interval);
@@ -247,11 +346,18 @@ export default function InstructorDashboardPage() {
               <h1 className="text-3xl font-bold text-gray-800 mb-2">
                 Instructor Dashboard: {gameState.game.name}
               </h1>
-              <div className="flex gap-4 text-sm text-gray-600">
-                <span>Status: <span className="font-semibold text-hawk-purple">{gameState.game.status}</span></span>
+              <div className="flex gap-4 text-sm text-gray-600 flex-wrap">
+                <span>Status: <span className={`font-semibold ${
+                  gameState.game.status === 'active' ? 'text-green-600' :
+                  gameState.game.status === 'paused' ? 'text-yellow-600' :
+                  gameState.game.status === 'completed' ? 'text-gray-500' :
+                  'text-hawk-purple'
+                }`}>{gameState.game.status.toUpperCase()}</span></span>
                 <span>Round: {gameState.game.currentRound}/{gameState.game.maxRounds}</span>
                 <span>Difficulty: {gameState.game.difficultyLevel}/10</span>
-                <span>AI Personality: {gameState.game.aiPersonality}</span>
+                {aiModelInfo && (
+                  <span>AI Model: <span className="font-semibold text-blue-600">{aiModelInfo.provider === 'gemini' ? 'Gemini' : 'Claude'} ({aiModelInfo.model})</span></span>
+                )}
               </div>
             </div>
             <div className="flex flex-wrap gap-3">
@@ -308,6 +414,48 @@ export default function InstructorDashboardPage() {
                     </div>
                   )}
                 </div>
+              )}
+
+              {/* Pause/Resume Game */}
+              {gameState.game.status === 'active' && (
+                <button
+                  onClick={handlePauseGame}
+                  disabled={pausingGame}
+                  className="bg-yellow-500 hover:bg-yellow-600 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {pausingGame ? 'Pausing...' : 'Pause Game'}
+                </button>
+              )}
+              {gameState.game.status === 'paused' && (
+                <button
+                  onClick={handleResumeGame}
+                  disabled={pausingGame}
+                  className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {pausingGame ? 'Resuming...' : 'Resume Game'}
+                </button>
+              )}
+
+              {/* End Game */}
+              {(gameState.game.status === 'active' || gameState.game.status === 'paused') && (
+                <button
+                  onClick={handleEndGame}
+                  disabled={endingGame}
+                  className="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+                  </svg>
+                  {endingGame ? 'Ending...' : 'End Game'}
+                </button>
               )}
 
               {/* Instructor Playbook (only visible to instructor) */}
@@ -626,6 +774,87 @@ export default function InstructorDashboardPage() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Student Evaluations Section */}
+        <div className="bg-white rounded-lg shadow mb-6">
+          <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+            <h2 className="text-xl font-bold text-gray-800">Student Evaluations</h2>
+            <div className="flex gap-2">
+              {evaluations.length > 0 && (
+                <button
+                  onClick={() => setShowEvaluations(!showEvaluations)}
+                  className="text-sm text-hawk-purple hover:underline"
+                >
+                  {showEvaluations ? 'Hide' : 'Show'} ({evaluations.length})
+                </button>
+              )}
+              <button
+                onClick={handleGenerateEvaluations}
+                disabled={generatingEvals}
+                className="bg-hawk-purple hover:bg-purple-800 disabled:bg-gray-400 text-white text-sm font-semibold py-2 px-4 rounded transition-colors"
+              >
+                {generatingEvals ? 'Generating...' : evaluations.length > 0 ? 'Regenerate Evaluations' : 'Generate Evaluations'}
+              </button>
+            </div>
+          </div>
+          {showEvaluations && evaluations.length > 0 && (
+            <div className="p-4 space-y-4">
+              {evaluations.map((evalItem, idx) => (
+                <div key={evalItem.id || idx} className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <h3 className="font-bold text-gray-800">{evalItem.studentName}</h3>
+                      <p className="text-sm text-gray-500">{evalItem.teamName} ({evalItem.teamRole})</p>
+                      {evalItem.studentEmail && (
+                        <p className="text-xs text-gray-400">{evalItem.studentEmail}</p>
+                      )}
+                    </div>
+                    {evalItem.score !== null && (
+                      <div className={`text-2xl font-bold px-3 py-1 rounded ${
+                        evalItem.score >= 80 ? 'text-green-600 bg-green-50' :
+                        evalItem.score >= 60 ? 'text-yellow-600 bg-yellow-50' :
+                        'text-red-600 bg-red-50'
+                      }`}>
+                        {evalItem.score}/100
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-700 mb-3 whitespace-pre-line">{evalItem.evaluation}</p>
+                  {evalItem.strengths?.length > 0 && (
+                    <div className="mb-2">
+                      <h4 className="text-xs font-semibold text-green-700 mb-1">Strengths:</h4>
+                      <ul className="text-sm text-gray-600 space-y-1">
+                        {evalItem.strengths.map((s, i) => <li key={i} className="text-green-700">+ {s}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                  {evalItem.improvements?.length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-semibold text-orange-700 mb-1">Areas for Improvement:</h4>
+                      <ul className="text-sm text-gray-600 space-y-1">
+                        {evalItem.improvements.map((s, i) => <li key={i} className="text-orange-700">- {s}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                  {evalItem.actionsSummary && (
+                    <div className="mt-3 bg-gray-50 rounded p-2 text-xs text-gray-500">
+                      <span className="font-semibold">Activity: </span>
+                      {evalItem.actionsSummary.incidents?.total || 0} incidents,{' '}
+                      {evalItem.actionsSummary.implementationPlans?.total || 0} plans,{' '}
+                      {evalItem.actionsSummary.changeRequests?.total || 0} change requests,{' '}
+                      {evalItem.actionsSummary.postIncidentReviews?.total || 0} PIRs
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          {!showEvaluations && evaluations.length === 0 && (
+            <div className="p-4 text-center text-gray-500 text-sm">
+              Click "Generate Evaluations" to create AI-powered evaluations for all students.
+            </div>
+          )}
         </div>
 
         {/* Recent AI Interactions */}

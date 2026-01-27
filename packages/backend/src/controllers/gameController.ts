@@ -334,6 +334,167 @@ export class GameController {
       return res.status(500).json({ error: 'Failed to start game' });
     }
   }
+  /**
+   * Pause a game
+   * POST /api/games/:gameId/pause
+   */
+  async pauseGame(req: Request, res: Response) {
+    const { gameId } = req.params;
+    const pool = getPool();
+
+    try {
+      const gameResult = await pool.query(
+        'SELECT id, status, name FROM games WHERE id = $1',
+        [gameId]
+      );
+
+      if (gameResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Game not found' });
+      }
+
+      const game = gameResult.rows[0];
+      if (game.status !== 'active') {
+        return res.status(400).json({ error: `Cannot pause game. Current status: ${game.status}` });
+      }
+
+      await pool.query(
+        `UPDATE games SET status = 'paused', updated_at = NOW() WHERE id = $1`,
+        [gameId]
+      );
+
+      await pool.query(
+        `INSERT INTO game_events (game_id, event_type, event_data, severity)
+         VALUES ($1, 'game_paused', $2, 'info')`,
+        [gameId, JSON.stringify({ pausedAt: new Date().toISOString() })]
+      );
+
+      logger.info(`Game ${gameId} paused`);
+      return res.json({ success: true, message: 'Game paused', status: 'paused' });
+    } catch (error) {
+      logger.error('Error pausing game:', error);
+      return res.status(500).json({ error: 'Failed to pause game' });
+    }
+  }
+
+  /**
+   * Resume a paused game
+   * POST /api/games/:gameId/resume
+   */
+  async resumeGame(req: Request, res: Response) {
+    const { gameId } = req.params;
+    const pool = getPool();
+
+    try {
+      const gameResult = await pool.query(
+        'SELECT id, status, name FROM games WHERE id = $1',
+        [gameId]
+      );
+
+      if (gameResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Game not found' });
+      }
+
+      const game = gameResult.rows[0];
+      if (game.status !== 'paused') {
+        return res.status(400).json({ error: `Cannot resume game. Current status: ${game.status}` });
+      }
+
+      await pool.query(
+        `UPDATE games SET status = 'active', updated_at = NOW() WHERE id = $1`,
+        [gameId]
+      );
+
+      await pool.query(
+        `INSERT INTO game_events (game_id, event_type, event_data, severity)
+         VALUES ($1, 'game_resumed', $2, 'info')`,
+        [gameId, JSON.stringify({ resumedAt: new Date().toISOString() })]
+      );
+
+      logger.info(`Game ${gameId} resumed`);
+      return res.json({ success: true, message: 'Game resumed', status: 'active' });
+    } catch (error) {
+      logger.error('Error resuming game:', error);
+      return res.status(500).json({ error: 'Failed to resume game' });
+    }
+  }
+
+  /**
+   * End a game
+   * POST /api/games/:gameId/end
+   */
+  async endGame(req: Request, res: Response) {
+    const { gameId } = req.params;
+    const pool = getPool();
+
+    try {
+      const gameResult = await pool.query(
+        'SELECT id, status FROM games WHERE id = $1',
+        [gameId]
+      );
+
+      if (gameResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Game not found' });
+      }
+
+      const game = gameResult.rows[0];
+      if (game.status !== 'active' && game.status !== 'paused') {
+        return res.status(400).json({ error: `Cannot end game. Current status: ${game.status}` });
+      }
+
+      await pool.query(
+        `UPDATE games SET status = 'completed', ended_at = NOW(), updated_at = NOW() WHERE id = $1`,
+        [gameId]
+      );
+
+      await pool.query(
+        `INSERT INTO game_events (game_id, event_type, event_data, severity)
+         VALUES ($1, 'game_ended', $2, 'info')`,
+        [gameId, JSON.stringify({ endedAt: new Date().toISOString() })]
+      );
+
+      logger.info(`Game ${gameId} ended`);
+      return res.json({ success: true, message: 'Game ended', status: 'completed' });
+    } catch (error) {
+      logger.error('Error ending game:', error);
+      return res.status(500).json({ error: 'Failed to end game' });
+    }
+  }
+
+  /**
+   * List all games including paused/completed for instructor to resume
+   * GET /api/games/all
+   */
+  async listAllGames(_req: Request, res: Response) {
+    try {
+      const pool = getPool();
+      const result = await pool.query(
+        `SELECT g.*,
+                (SELECT COUNT(*) FROM players p WHERE p.game_id = g.id AND p.left_at IS NULL) as player_count,
+                (SELECT COUNT(*) FROM teams t WHERE t.game_id = g.id) as team_count
+         FROM games g
+         ORDER BY g.created_at DESC
+         LIMIT 50`
+      );
+      return res.json({
+        games: result.rows.map((g: any) => ({
+          id: g.id,
+          name: g.name,
+          status: g.status,
+          playerCount: parseInt(g.player_count),
+          teamCount: parseInt(g.team_count),
+          durationMinutes: g.duration_minutes,
+          currentRound: g.current_round,
+          maxRounds: g.max_rounds,
+          startedAt: g.started_at,
+          endedAt: g.ended_at,
+          createdAt: g.created_at,
+        })),
+      });
+    } catch (error) {
+      logger.error('Error listing all games:', error);
+      return res.status(500).json({ error: 'Failed to list games' });
+    }
+  }
 }
 
 export const gameController = new GameController();
