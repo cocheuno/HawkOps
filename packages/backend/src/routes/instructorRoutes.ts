@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { instructorController } from '../controllers/instructorController';
 import { stakeholderController } from '../controllers/stakeholderController';
 import { studentController } from '../controllers/studentController';
+import { evaluationController } from '../controllers/evaluationController';
 
 const router = Router();
 
@@ -67,6 +68,20 @@ router.post('/games/:gameId/stakeholder-comm', (req, res) =>
 );
 router.get('/games/:gameId/communications', (req, res) =>
   stakeholderController.getGameCommunications(req, res)
+);
+
+// ============================================
+// STUDENT EVALUATIONS
+// ============================================
+
+// Generate end-of-game evaluations for all students
+router.post('/games/:gameId/evaluate-students', (req, res) =>
+  evaluationController.generateEvaluations(req, res)
+);
+
+// Get existing evaluations
+router.get('/games/:gameId/evaluations', (req, res) =>
+  evaluationController.getEvaluations(req, res)
 );
 
 export default router;

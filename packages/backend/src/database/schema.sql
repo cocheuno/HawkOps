@@ -223,7 +223,24 @@ CREATE TABLE IF NOT EXISTS change_requests (
   CONSTRAINT change_requests_workflow_check CHECK (workflow_state IN ('pending_cab', 'under_review', 'review_complete', 'approved', 'rejected'))
 );
 
+-- Student Evaluations table (end-of-game AI evaluations)
+CREATE TABLE IF NOT EXISTS student_evaluations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  game_id UUID NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+  team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  player_id UUID REFERENCES players(id) ON DELETE SET NULL,
+  student_name VARCHAR(255),
+  student_email VARCHAR(255),
+  actions_summary JSONB,
+  ai_evaluation TEXT,
+  ai_score INTEGER,
+  strengths TEXT[],
+  improvements TEXT[],
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes for better query performance
+CREATE INDEX IF NOT EXISTS idx_student_evaluations_game_id ON student_evaluations(game_id);
 CREATE INDEX IF NOT EXISTS idx_implementation_plans_game_id ON implementation_plans(game_id);
 CREATE INDEX IF NOT EXISTS idx_implementation_plans_team_id ON implementation_plans(team_id);
 CREATE INDEX IF NOT EXISTS idx_implementation_plans_incident_id ON implementation_plans(incident_id);

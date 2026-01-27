@@ -9,6 +9,9 @@ router.post('/', (req, res) => gameController.createGame(req, res));
 // List all active games
 router.get('/', (req, res) => gameController.listGames(req, res));
 
+// List all games (including paused/completed) for instructor
+router.get('/all', (req, res) => gameController.listAllGames(req, res));
+
 // Get game by ID
 router.get('/:gameId', (req, res) => gameController.getGame(req, res));
 
@@ -17,6 +20,15 @@ router.post('/:gameId/join', (req, res) => gameController.joinGame(req, res));
 
 // Start a game (initializes all realism features)
 router.post('/:gameId/start', (req, res) => gameController.startGame(req, res));
+
+// Pause a game
+router.post('/:gameId/pause', (req, res) => gameController.pauseGame(req, res));
+
+// Resume a paused game
+router.post('/:gameId/resume', (req, res) => gameController.resumeGame(req, res));
+
+// End a game
+router.post('/:gameId/end', (req, res) => gameController.endGame(req, res));
 
 // Service Health endpoints
 router.get('/:gameId/service-health', (req, res) => gameController.getServiceHealth(req, res));

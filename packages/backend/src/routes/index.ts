@@ -11,6 +11,7 @@ import competitiveRoutes from './competitiveRoutes';
 import realismRoutes from './realismRoutes';
 import analyticsRoutes from './analyticsRoutes';
 import studentAuthRoutes from './studentAuthRoutes';
+import authRoutes from './authRoutes';
 
 const router = Router();
 
@@ -18,6 +19,12 @@ const router = Router();
 router.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// Auth routes (email-only login)
+router.use('/auth', authRoutes);
+
+// Config routes (AI info, etc.)
+router.use('/config', authRoutes);
 
 // Game routes
 router.use('/games', gameRoutes);
