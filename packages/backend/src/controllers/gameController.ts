@@ -461,6 +461,41 @@ export class GameController {
   }
 
   /**
+   * Delete a game and all associated data (cascading)
+   * DELETE /api/games/:gameId
+   */
+  async deleteGame(req: Request, res: Response) {
+    const { gameId } = req.params;
+    const pool = getPool();
+
+    try {
+      const gameResult = await pool.query(
+        'SELECT id, name, status FROM games WHERE id = $1',
+        [gameId]
+      );
+
+      if (gameResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Game not found' });
+      }
+
+      const game = gameResult.rows[0];
+
+      if (game.status === 'active') {
+        return res.status(400).json({ error: 'Cannot delete an active game. End or pause it first.' });
+      }
+
+      // All related tables have ON DELETE CASCADE, so this single delete handles everything
+      await pool.query('DELETE FROM games WHERE id = $1', [gameId]);
+
+      logger.info(`Game deleted: ${gameId} - ${game.name}`);
+      return res.json({ success: true, message: `Game "${game.name}" deleted successfully` });
+    } catch (error) {
+      logger.error('Error deleting game:', error);
+      return res.status(500).json({ error: 'Failed to delete game' });
+    }
+  }
+
+  /**
    * List all games including paused/completed for instructor to resume
    * GET /api/games/all
    */

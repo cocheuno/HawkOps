@@ -33,8 +33,8 @@ export const env = {
   // Session
   SESSION_SECRET: process.env.SESSION_SECRET || 'change-this-in-production',
 
-  // AI Provider: 'claude' (default) or 'gemini'
-  AI_PROVIDER: (process.env.AI_PROVIDER || 'claude') as 'claude' | 'gemini',
+  // AI Provider: 'gemini' (default) or 'claude'
+  AI_PROVIDER: (process.env.AI_PROVIDER || 'gemini') as 'claude' | 'gemini',
 
   // Claude AI
   ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || '',
@@ -74,7 +74,7 @@ for (const envVar of requiredEnvVars) {
   }
 }
 
-const aiProvider = process.env.AI_PROVIDER || 'claude';
+const aiProvider = process.env.AI_PROVIDER || 'gemini';
 console.info(`[env] AI_PROVIDER=${aiProvider}, model=${aiProvider === 'gemini' ? (process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite') : (process.env.CLAUDE_MODEL || 'claude-3-haiku-20240307')}`);
 if (aiProvider === 'claude' && !process.env.ANTHROPIC_API_KEY) {
   console.warn('Warning: ANTHROPIC_API_KEY is not set. Claude AI features will not work.');
