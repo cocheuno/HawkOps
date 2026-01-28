@@ -1,7 +1,25 @@
 import { Request, Response } from 'express';
-import { aiService } from '../services/ai';
+import { aiService, AIServiceError } from '../services/ai';
 import { getPool } from '../config/database';
 import logger from '../utils/logger';
+
+/**
+ * Helper to format AI errors for API responses
+ */
+function formatAIError(error: any): { error: string; userMessage: string; isRetryable: boolean } {
+  if (error instanceof AIServiceError) {
+    return {
+      error: error.message,
+      userMessage: error.userMessage,
+      isRetryable: error.isRetryable,
+    };
+  }
+  return {
+    error: error.message || 'Unknown error',
+    userMessage: 'An unexpected error occurred with the AI service. Please try again.',
+    isRetryable: false,
+  };
+}
 
 export class AIController {
   /**
@@ -52,10 +70,12 @@ export class AIController {
       });
     } catch (error: any) {
       logger.error('Error generating scenarios:', error);
-      return res.status(500).json({
+      const { error: errMsg, userMessage, isRetryable } = formatAIError(error);
+      return res.status(error instanceof AIServiceError && error.statusCode === 429 ? 429 : 500).json({
         success: false,
-        error: 'Failed to generate scenarios',
-        details: error.message,
+        error: errMsg,
+        userMessage,
+        isRetryable,
       });
     }
   }
@@ -194,10 +214,12 @@ export class AIController {
       });
     } catch (error: any) {
       logger.error('Error generating documents:', error);
-      return res.status(500).json({
+      const { error: errMsg, userMessage, isRetryable } = formatAIError(error);
+      return res.status(error instanceof AIServiceError && error.statusCode === 429 ? 429 : 500).json({
         success: false,
-        error: 'Failed to generate documents',
-        details: error.message,
+        error: errMsg,
+        userMessage,
+        isRetryable,
       });
     }
   }

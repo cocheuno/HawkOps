@@ -1,5 +1,6 @@
 import { Pool } from 'pg';
 import { AchievementsService } from './achievements.service';
+import { computeChallengeWindow, ChallengeWindowType } from '@hawkops/shared';
 
 interface Challenge {
   id: string;
@@ -21,102 +22,103 @@ interface Challenge {
 
 interface ChallengeTemplate {
   title: string;
-  description: string;
+  descriptionTemplate: string; // Use {duration} placeholder
   challengeType: string;
   targetValue: number;
   rewardPoints: number;
-  durationMinutes: number;
+  windowType: ChallengeWindowType; // 'quick', 'standard', or 'long'
 }
 
+// Challenge templates with duration-aware window types
 const CHALLENGE_TEMPLATES: ChallengeTemplate[] = [
-  // Speed challenges
+  // Speed challenges (quick windows)
   {
     title: 'Speed Run',
-    description: 'Resolve 3 incidents in the next 30 minutes',
+    descriptionTemplate: 'Resolve 3 incidents in the next {duration} minutes',
     challengeType: 'speed',
     targetValue: 3,
     rewardPoints: 300,
-    durationMinutes: 30
+    windowType: 'quick'
   },
   {
     title: 'Lightning Response',
-    description: 'Respond to 5 incidents within 2 minutes of assignment',
+    descriptionTemplate: 'Respond to 5 incidents within 2 minutes of assignment (complete in {duration} min)',
     challengeType: 'response_time',
     targetValue: 5,
     rewardPoints: 250,
-    durationMinutes: 60
+    windowType: 'standard'
   },
   {
     title: 'Marathon Runner',
-    description: 'Maintain zero SLA breaches for 1 hour',
+    descriptionTemplate: 'Maintain zero SLA breaches for the next {duration} minutes',
     challengeType: 'sla_streak',
-    targetValue: 60,
+    targetValue: 60, // Will be scaled to match duration
     rewardPoints: 400,
-    durationMinutes: 60
+    windowType: 'standard'
   },
 
-  // Quality challenges
+  // Quality challenges (standard to long windows)
   {
     title: 'Quality Control',
-    description: 'Complete 3 PIRs with scores above 75',
+    descriptionTemplate: 'Complete 2 PIRs with scores above 75 within {duration} minutes',
     challengeType: 'pir_quality',
-    targetValue: 3,
+    targetValue: 2, // Reduced from 3 for shorter games
     rewardPoints: 350,
-    durationMinutes: 120
+    windowType: 'long'
   },
   {
     title: 'Deep Analysis',
-    description: 'Submit a PIR that scores 90 or higher',
+    descriptionTemplate: 'Submit a PIR that scores 90 or higher within {duration} minutes',
     challengeType: 'pir_excellence',
     targetValue: 90,
     rewardPoints: 500,
-    durationMinutes: 180
+    windowType: 'long'
   },
 
-  // Communication challenges
+  // Communication challenges (standard windows)
   {
     title: 'Stakeholder Whisperer',
-    description: 'Respond to 5 stakeholder messages with 80+ satisfaction',
+    descriptionTemplate: 'Respond to 3 stakeholder messages with 80+ satisfaction within {duration} minutes',
     challengeType: 'stakeholder_satisfaction',
-    targetValue: 5,
+    targetValue: 3, // Reduced from 5 for shorter games
     rewardPoints: 400,
-    durationMinutes: 90
+    windowType: 'standard'
   },
   {
     title: 'Crisis Communicator',
-    description: 'Handle an executive or media inquiry with 85+ score',
+    descriptionTemplate: 'Handle an executive or media inquiry with 85+ score within {duration} minutes',
     challengeType: 'high_stakes_comm',
     targetValue: 85,
     rewardPoints: 450,
-    durationMinutes: 60
+    windowType: 'standard'
   },
 
-  // Efficiency challenges
+  // Efficiency challenges (standard windows)
   {
     title: 'Budget Conscious',
-    description: 'Resolve 3 incidents while keeping costs under $5,000 total',
+    descriptionTemplate: 'Resolve 2 incidents while keeping costs under $5,000 (complete in {duration} min)',
     challengeType: 'cost_efficiency',
     targetValue: 5000,
     rewardPoints: 350,
-    durationMinutes: 90
+    windowType: 'standard'
   },
   {
     title: 'Clean Sweep',
-    description: 'Clear all open incidents assigned to your team',
+    descriptionTemplate: 'Clear all open incidents assigned to your team within {duration} minutes',
     challengeType: 'clear_queue',
     targetValue: 0,
     rewardPoints: 300,
-    durationMinutes: 60
+    windowType: 'quick'
   },
 
-  // Collaboration challenges
+  // Collaboration challenges (quick windows)
   {
     title: 'Team Player',
-    description: 'Successfully hand off 2 incidents to appropriate teams',
+    descriptionTemplate: 'Successfully hand off 2 incidents to appropriate teams within {duration} minutes',
     challengeType: 'collaboration',
     targetValue: 2,
     rewardPoints: 250,
-    durationMinutes: 90
+    windowType: 'quick'
   }
 ];
 
@@ -215,19 +217,53 @@ export class ChallengesService {
   }
 
   /**
-   * Create a random challenge from templates
+   * Create a random challenge from templates with duration-aware windows
    */
   async createRandomChallenge(gameId: string, assignedTeamId?: string): Promise<Challenge> {
+    // Get game duration and remaining time
+    const gameResult = await this.pool.query(
+      `SELECT duration_minutes, started_at FROM games WHERE id = $1`,
+      [gameId]
+    );
+
+    const gameDurationMinutes = gameResult.rows[0]?.duration_minutes || 75;
+    const startedAt = gameResult.rows[0]?.started_at;
+
+    // Calculate remaining game time
+    let gameRemainingMinutes = gameDurationMinutes;
+    if (startedAt) {
+      const elapsedMs = Date.now() - new Date(startedAt).getTime();
+      const elapsedMinutes = Math.floor(elapsedMs / 60000);
+      gameRemainingMinutes = Math.max(5, gameDurationMinutes - elapsedMinutes);
+    }
+
+    // Pick a random template
     const template = CHALLENGE_TEMPLATES[Math.floor(Math.random() * CHALLENGE_TEMPLATES.length)];
+
+    // Compute duration-aware challenge window, capped to remaining game time
+    const durationMinutes = computeChallengeWindow(
+      template.windowType,
+      gameDurationMinutes,
+      gameRemainingMinutes
+    );
+
+    // Generate description with actual duration
+    const description = template.descriptionTemplate.replace('{duration}', String(durationMinutes));
+
+    // For sla_streak challenges, adjust target to match duration
+    let targetValue = template.targetValue;
+    if (template.challengeType === 'sla_streak') {
+      targetValue = durationMinutes; // Target is minutes without breach
+    }
 
     return this.createChallenge(
       gameId,
       template.title,
-      template.description,
+      description,
       template.challengeType,
-      template.targetValue,
+      targetValue,
       template.rewardPoints,
-      template.durationMinutes,
+      durationMinutes,
       assignedTeamId
     );
   }

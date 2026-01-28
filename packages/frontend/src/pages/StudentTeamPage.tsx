@@ -10,10 +10,10 @@ import CABWorkflowPanel from '../components/CABWorkflowPanel';
 const API_URL = import.meta.env.PROD ? '/api' : 'http://localhost:3000/api';
 
 interface StudentInfo {
-  id: string;
+  id?: string;
   playerId: string;
   name: string;
-  email: string;
+  email?: string;
 }
 
 interface TeamInfo {
@@ -43,6 +43,22 @@ interface Incident {
   updatedAt: string;
 }
 
+interface TeamMember {
+  id: string;
+  name: string;
+  email: string;
+  joinedAt: string;
+  isReady: boolean;
+}
+
+interface LobbyTeam {
+  id: string;
+  name: string;
+  role: string;
+  memberCount: number;
+  readyCount: number;
+}
+
 export default function StudentTeamPage() {
   const { teamId } = useParams<{ teamId: string }>();
   const [searchParams] = useSearchParams();
@@ -57,6 +73,10 @@ export default function StudentTeamPage() {
 
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [activeTab, setActiveTab] = useState<'incidents' | 'plans' | 'changes' | 'cab'>('incidents');
+  const [isReady, setIsReady] = useState(false);
+  const [members, setMembers] = useState<TeamMember[]>([]);
+  const [allTeams, setAllTeams] = useState<LobbyTeam[]>([]);
+  const [togglingReady, setTogglingReady] = useState(false);
 
   const token = searchParams.get('token');
 
@@ -92,6 +112,9 @@ export default function StudentTeamPage() {
       setTeam(response.data.team);
       setGame(response.data.game);
       setIncidents(response.data.incidents || []);
+      setMembers(response.data.members || []);
+      setAllTeams(response.data.allTeams || []);
+      setIsReady(response.data.currentStudent?.isReady || false);
       setLoading(false);
 
       // Fetch all teams for CAB workflow
@@ -122,6 +145,26 @@ export default function StudentTeamPage() {
     const interval = setInterval(fetchDashboard, 10000); // Poll every 10 seconds
     return () => clearInterval(interval);
   }, [fetchDashboard]);
+
+  const handleToggleReady = async () => {
+    const accessToken = getStoredToken();
+    setTogglingReady(true);
+
+    try {
+      const response = await axios.post(
+        `${API_URL}/student/team/${teamId}/ready`,
+        { isReady: !isReady },
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      setIsReady(response.data.isReady);
+      toast.success(response.data.isReady ? "You're ready!" : 'Ready status cleared');
+      fetchDashboard(); // Refresh to get updated team ready counts
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Failed to update ready status');
+    } finally {
+      setTogglingReady(false);
+    }
+  };
 
   const handleStatusChange = async (incidentId: string, newStatus: string) => {
     const accessToken = getStoredToken();
@@ -181,6 +224,176 @@ export default function StudentTeamPage() {
             If you believe this is an error, please contact your instructor.
           </p>
         </div>
+      </div>
+    );
+  }
+
+  // Waiting Room - shown when game is in lobby status
+  if (game?.status === 'lobby') {
+    const totalPlayers = allTeams.reduce((sum, t) => sum + t.memberCount, 0);
+    const totalReady = allTeams.reduce((sum, t) => sum + t.readyCount, 0);
+
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-700 to-purple-900">
+        <Toaster position="top-right" />
+
+        {/* Header */}
+        <header className="bg-purple-800 text-white py-4 px-6 shadow-lg">
+          <div className="max-w-4xl mx-auto flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold">HawkOps ITSM Simulation</h1>
+              <p className="text-purple-200 text-sm">{game?.name}</p>
+            </div>
+            <div className="text-right">
+              <p className="font-semibold">{student?.name}</p>
+              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-yellow-500 text-yellow-900">
+                WAITING ROOM
+              </span>
+            </div>
+          </div>
+        </header>
+
+        {/* Waiting Room Content */}
+        <main className="max-w-4xl mx-auto px-6 py-8">
+          {/* Welcome Card */}
+          <div className="bg-white rounded-lg shadow-xl p-8 mb-6">
+            <div className="text-center mb-6">
+              <div className="text-6xl mb-4">🎮</div>
+              <h2 className="text-3xl font-bold text-purple-800 mb-2">Welcome to HawkOps!</h2>
+              <p className="text-gray-600 text-lg">
+                The simulation will begin when your instructor starts the game.
+              </p>
+            </div>
+
+            {/* Team Assignment */}
+            <div className="bg-purple-50 rounded-lg p-6 mb-6">
+              <h3 className="text-lg font-bold text-purple-800 mb-4">Your Team Assignment</h3>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-2xl font-bold text-purple-700">{team?.name}</p>
+                  <p className="text-purple-600">{team?.role}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-gray-500">Team Members</p>
+                  <p className="text-xl font-bold text-purple-700">
+                    {members.filter(m => m.isReady).length} / {members.length} ready
+                  </p>
+                </div>
+              </div>
+
+              {/* Team Members List */}
+              <div className="mt-4 border-t border-purple-200 pt-4">
+                <p className="text-sm font-semibold text-purple-800 mb-2">Your Teammates:</p>
+                <div className="space-y-2">
+                  {members.map((member) => (
+                    <div
+                      key={member.id}
+                      className={`flex items-center justify-between p-2 rounded ${
+                        member.id === student?.playerId ? 'bg-purple-100 border border-purple-300' : 'bg-white'
+                      }`}
+                    >
+                      <span className="font-medium text-gray-700">
+                        {member.name} {member.id === student?.playerId && '(You)'}
+                      </span>
+                      <span className={`text-sm font-semibold ${member.isReady ? 'text-green-600' : 'text-gray-400'}`}>
+                        {member.isReady ? '✓ Ready' : 'Waiting...'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Ready Toggle */}
+            <div className="text-center">
+              <button
+                onClick={handleToggleReady}
+                disabled={togglingReady}
+                className={`px-8 py-4 rounded-lg text-lg font-bold transition-all transform hover:scale-105 ${
+                  isReady
+                    ? 'bg-green-500 hover:bg-green-600 text-white'
+                    : 'bg-purple-600 hover:bg-purple-700 text-white'
+                } disabled:opacity-50 disabled:transform-none`}
+              >
+                {togglingReady ? 'Updating...' : isReady ? "✓ You're Ready!" : "Click When Ready"}
+              </button>
+              <p className="text-sm text-gray-500 mt-2">
+                {isReady
+                  ? 'Waiting for other players and instructor to start...'
+                  : 'Let your instructor know you are ready to begin'}
+              </p>
+            </div>
+          </div>
+
+          {/* All Teams Status */}
+          <div className="bg-white rounded-lg shadow-xl p-6 mb-6">
+            <h3 className="text-lg font-bold text-gray-800 mb-4">
+              All Teams ({totalReady}/{totalPlayers} players ready)
+            </h3>
+            <div className="grid gap-4 md:grid-cols-3">
+              {allTeams.map((t) => (
+                <div
+                  key={t.id}
+                  className={`p-4 rounded-lg border-2 ${
+                    t.id === team?.id ? 'border-purple-500 bg-purple-50' : 'border-gray-200 bg-gray-50'
+                  }`}
+                >
+                  <p className="font-bold text-gray-800">{t.name}</p>
+                  <p className="text-sm text-gray-500">{t.role}</p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-green-500 h-2 rounded-full transition-all"
+                        style={{ width: t.memberCount > 0 ? `${(t.readyCount / t.memberCount) * 100}%` : '0%' }}
+                      />
+                    </div>
+                    <span className="text-sm font-medium text-gray-600">
+                      {t.readyCount}/{t.memberCount}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Quick Start Guide */}
+          <div className="bg-white rounded-lg shadow-xl p-6">
+            <h3 className="text-lg font-bold text-gray-800 mb-4">Quick Start Guide</h3>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="p-4 bg-blue-50 rounded-lg">
+                <h4 className="font-bold text-blue-800 mb-2">📋 Your Role: {team?.role}</h4>
+                <p className="text-sm text-blue-700">
+                  {team?.role === 'Service Desk'
+                    ? 'Receive incoming incidents, triage, escalate to technical teams, and communicate with stakeholders.'
+                    : team?.role === 'Technical Operations'
+                    ? 'Investigate incidents, develop implementation plans, and perform technical remediation.'
+                    : 'Review and approve change requests, provide strategic oversight, and ensure compliance.'}
+                </p>
+              </div>
+              <div className="p-4 bg-green-50 rounded-lg">
+                <h4 className="font-bold text-green-800 mb-2">🎯 Objectives</h4>
+                <ul className="text-sm text-green-700 list-disc list-inside space-y-1">
+                  <li>Resolve incidents within SLA deadlines</li>
+                  <li>Communicate effectively with your team</li>
+                  <li>Follow ITSM best practices</li>
+                  <li>Maximize your team's score</li>
+                </ul>
+              </div>
+              <div className="p-4 bg-yellow-50 rounded-lg">
+                <h4 className="font-bold text-yellow-800 mb-2">⏱️ Time Management</h4>
+                <p className="text-sm text-yellow-700">
+                  Watch SLA deadlines closely. Prioritize critical and high-priority incidents. Don't let tickets age!
+                </p>
+              </div>
+              <div className="p-4 bg-purple-50 rounded-lg">
+                <h4 className="font-bold text-purple-800 mb-2">🤝 Collaboration</h4>
+                <p className="text-sm text-purple-700">
+                  Work with other teams. Service Desk escalates to Tech Ops. Tech Ops submits changes to CAB for approval.
+                </p>
+              </div>
+            </div>
+          </div>
+        </main>
       </div>
     );
   }

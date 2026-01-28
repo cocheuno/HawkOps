@@ -1,4 +1,5 @@
 import { Pool } from 'pg';
+import { computeAtRiskThreshold, computeSLATarget } from '@hawkops/shared';
 import logger from '../utils/logger';
 
 interface SLABreachResult {
@@ -177,21 +178,34 @@ export class SLAService {
   }
 
   /**
-   * Get SLA status summary for a game
+   * Get SLA status summary for a game with duration-aware at-risk thresholds
    */
   async getSLAStatus(gameId: string): Promise<{
     total: number;
     withinSLA: number;
     breached: number;
-    atRisk: number; // Within 15 minutes of breach
+    atRisk: number;
+    atRiskThresholdMinutes: number;
   }> {
+    // Get game duration to compute at-risk threshold
+    const gameResult = await this.pool.query(
+      `SELECT duration_minutes FROM games WHERE id = $1`,
+      [gameId]
+    );
+    const gameDurationMinutes = gameResult.rows[0]?.duration_minutes || 75;
+
+    // Compute average at-risk threshold based on game duration
+    // Use medium priority as the baseline (most common incident type)
+    const mediumSLA = computeSLATarget('medium', gameDurationMinutes);
+    const atRiskThresholdMinutes = computeAtRiskThreshold(mediumSLA);
+
     const result = await this.pool.query(
       `SELECT
          COUNT(*) FILTER (WHERE status NOT IN ('resolved', 'closed')) as total,
          COUNT(*) FILTER (
            WHERE status NOT IN ('resolved', 'closed')
            AND sla_deadline > NOW()
-           AND sla_deadline > NOW() + INTERVAL '15 minutes'
+           AND sla_deadline > NOW() + INTERVAL '${atRiskThresholdMinutes} minutes'
          ) as within_sla,
          COUNT(*) FILTER (
            WHERE status NOT IN ('resolved', 'closed')
@@ -200,7 +214,7 @@ export class SLAService {
          COUNT(*) FILTER (
            WHERE status NOT IN ('resolved', 'closed')
            AND sla_deadline > NOW()
-           AND sla_deadline <= NOW() + INTERVAL '15 minutes'
+           AND sla_deadline <= NOW() + INTERVAL '${atRiskThresholdMinutes} minutes'
            AND (sla_breached IS NULL OR sla_breached = false)
          ) as at_risk
        FROM incidents
@@ -214,6 +228,7 @@ export class SLAService {
       withinSLA: parseInt(row.within_sla) || 0,
       breached: parseInt(row.breached) || 0,
       atRisk: parseInt(row.at_risk) || 0,
+      atRiskThresholdMinutes,
     };
   }
 

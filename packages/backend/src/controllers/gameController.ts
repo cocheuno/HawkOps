@@ -3,6 +3,7 @@ import { getPool } from '../config/database';
 import { ServiceHealthService } from '../services/serviceHealth.service';
 import { ResourceManagementService } from '../services/resourceManagement.service';
 import { ServiceDependencyService } from '../services/serviceDependency.service';
+import { computeEscalationRules } from '@hawkops/shared';
 import logger from '../utils/logger';
 
 interface CreateGameRequest {
@@ -259,26 +260,29 @@ export class GameController {
         }
       }
 
-      // 2. Initialize escalation rules
+      // 2. Initialize escalation rules (duration-aware)
       const escResult = await pool.query(
         `SELECT COUNT(*) as count FROM escalation_rules WHERE game_id = $1`,
         [gameId]
       );
 
       if (parseInt(escResult.rows[0].count) === 0) {
-        const rules = [
-          { name: 'Critical P1 - 15 min', description: 'Escalate critical incidents after 15 minutes', priority: 'critical', time: 15, level: 1, roles: ['manager', 'lead'] },
-          { name: 'Critical P1 - 30 min', description: 'Major escalation for critical incidents after 30 minutes', priority: 'critical', time: 30, level: 2, roles: ['director', 'vp'] },
-          { name: 'High Priority - 30 min', description: 'Escalate high priority incidents after 30 minutes', priority: 'high', time: 30, level: 1, roles: ['manager'] },
-          { name: 'High Priority - 60 min', description: 'Major escalation for high priority incidents after 60 minutes', priority: 'high', time: 60, level: 2, roles: ['director'] },
-          { name: 'Medium Priority - 60 min', description: 'Escalate medium priority incidents after 60 minutes', priority: 'medium', time: 60, level: 1, roles: ['lead'] }
-        ];
+        // Get game duration to compute escalation rules
+        const gameDurationResult = await pool.query(
+          `SELECT duration_minutes FROM games WHERE id = $1`,
+          [gameId]
+        );
+        const gameDurationMinutes = gameDurationResult.rows[0]?.duration_minutes || 75;
+
+        // Compute duration-aware escalation rules
+        const rules = computeEscalationRules(gameDurationMinutes);
+        logger.info(`Computing escalation rules for ${gameDurationMinutes}-minute game`);
 
         for (const rule of rules) {
           await pool.query(
             `INSERT INTO escalation_rules (game_id, name, description, priority_trigger, time_threshold_minutes, escalation_level, notify_roles)
              VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-            [gameId, rule.name, rule.description, rule.priority, rule.time, rule.level, rule.roles]
+            [gameId, rule.name, rule.description, rule.priority, rule.timeThresholdMinutes, rule.escalationLevel, rule.notifyRoles]
           );
           initResults.escalationRules++;
         }

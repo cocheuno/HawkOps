@@ -3,6 +3,7 @@ import { getPool } from '../config/database';
 import { AIGameMasterService } from '../services/aiGameMaster.service';
 import { SLAService } from '../services/sla.service';
 import { ServiceHealthService } from '../services/serviceHealth.service';
+import { getGameTimingConfig } from '@hawkops/shared';
 import logger from '../utils/logger';
 
 /**
@@ -408,6 +409,56 @@ export class InstructorController {
       return res.status(500).json({
         success: false,
         error: 'Failed to get SLA status',
+        message: error.message,
+      });
+    }
+  }
+
+  /**
+   * Get game timing configuration (duration-aware thresholds)
+   * GET /api/instructor/games/:gameId/timing-config
+   */
+  async getGameTimingConfig(req: Request, res: Response) {
+    const { gameId } = req.params;
+    const pool = getPool();
+
+    try {
+      const gameResult = await pool.query(
+        `SELECT id, name, duration_minutes, started_at FROM games WHERE id = $1`,
+        [gameId]
+      );
+
+      if (gameResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Game not found' });
+      }
+
+      const game = gameResult.rows[0];
+      const gameDurationMinutes = game.duration_minutes || 75;
+
+      // Calculate remaining time if game has started
+      let remainingMinutes = gameDurationMinutes;
+      let elapsedMinutes = 0;
+      if (game.started_at) {
+        elapsedMinutes = Math.floor((Date.now() - new Date(game.started_at).getTime()) / 60000);
+        remainingMinutes = Math.max(0, gameDurationMinutes - elapsedMinutes);
+      }
+
+      const timingConfig = getGameTimingConfig(gameDurationMinutes);
+
+      return res.json({
+        success: true,
+        gameId: game.id,
+        gameName: game.name,
+        gameDurationMinutes,
+        elapsedMinutes,
+        remainingMinutes,
+        timingConfig,
+      });
+    } catch (error: any) {
+      logger.error('Error getting game timing config:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to get game timing config',
         message: error.message,
       });
     }
