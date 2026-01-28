@@ -162,19 +162,21 @@ export class AIGameMasterService {
       );
 
       // Get instructor playbook for scenario context alignment
+      // Include both draft and published - AI needs this for incident alignment even before publishing
       const playbookResult = await client.query(
         `SELECT content FROM simulation_documents
          WHERE game_id = $1 AND document_type = 'instructor_playbook'
-         AND status = 'published'
+         AND status IN ('draft', 'published')
          ORDER BY created_at DESC LIMIT 1`,
         [gameId]
       );
 
       // Get general briefing for additional context
+      // Include both draft and published - AI needs this for incident alignment even before publishing
       const briefingResult = await client.query(
         `SELECT content FROM simulation_documents
          WHERE game_id = $1 AND document_type = 'general_briefing'
-         AND status = 'published'
+         AND status IN ('draft', 'published')
          ORDER BY created_at DESC LIMIT 1`,
         [gameId]
       );
