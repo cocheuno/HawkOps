@@ -187,6 +187,11 @@ After logging in, you'll see the Instructor Home Page with:
 - **Create New Game** button
 - **Your Games** list showing all games you've created
 
+**AI Resilience**: The system includes automatic retry logic for AI operations. If the AI service is temporarily unavailable (rate limiting, network issues), the system will:
+- Automatically retry up to 3 times with exponential backoff
+- Show user-friendly error messages if all retries fail
+- Allow you to retry manually after a brief wait
+
 #### Game Status Indicators
 
 | Status | Color | Meaning |
@@ -512,7 +517,21 @@ This section provides complete instructions for students participating in HawkOp
 1. Navigate to the HawkOps application URL
 2. Enter the email address your instructor registered
 3. Click **"Join Game"**
-4. You'll be automatically directed to your team's dashboard
+
+**What Happens Next:**
+
+- **If the game is in LOBBY status**: You'll enter the **Waiting Room** where you can:
+  - See your team assignment and teammates
+  - Mark yourself as "Ready" to let the instructor know you're prepared
+  - Review your team role and quick start guide
+  - See the ready status of all teams
+  - Wait for the instructor to start the game
+
+- **If the game is ACTIVE**: You'll be taken directly to your team's dashboard to start working
+
+- **If the game is PAUSED**: You'll see a paused indicator and can rejoin once the instructor resumes
+
+The Waiting Room is designed to help you prepare before the simulation begins, ensuring everyone understands their role and is ready to go when the instructor starts the game.
 
 ### 5.2 Understanding Your Dashboard
 
@@ -855,14 +874,26 @@ Understanding service dependencies helps prioritize incidents - fixing a core se
 
 ### 6.2 SLA System
 
+#### Duration-Aware SLA Scaling
+
+HawkOps automatically adjusts SLA targets based on your game duration. This ensures a realistic experience whether you're running a 30-minute demo or a full 75-minute session.
+
+**How It Works:**
+- SLA times are calculated as a percentage of game duration
+- Minimum and maximum caps ensure targets remain realistic
+- Escalation thresholds scale proportionally
+- Challenge windows adjust to fit available time
+
 #### SLA Targets by Priority
 
-| Priority | Typical SLA | Impact |
-|----------|-------------|--------|
-| Critical | 15-30 min | Complete outage |
-| High | 30-60 min | Major degradation |
-| Medium | 2-4 hours | Feature unavailable |
-| Low | 8-24 hours | Minor inconvenience |
+| Priority | Typical SLA (75 min game) | % of Game Duration |
+|----------|---------------------------|-------------------|
+| Critical | 15 min | 20% (min: 8, max: 25 min) |
+| High | 26 min | 35% (min: 12, max: 40 min) |
+| Medium | 41 min | 55% (min: 20, max: 55 min) |
+| Low | 60 min | 80% (min: 30, max: 75 min) |
+
+**At-Risk Warning**: Incidents become "At Risk" when only 25% of SLA time remains.
 
 #### SLA Breach Consequences
 
@@ -1141,15 +1172,16 @@ Challenges are time-limited opportunities for bonus points.
 #### Students Can't Join
 
 **Solutions:**
-1. Verify game status is "Active" (not "Lobby")
+1. Verify game status is "Lobby" or "Active" (students can join in either state)
 2. Confirm student email is registered
 3. Check student is assigned to a team
+4. If game is in "Lobby", students will see a Waiting Room until the instructor starts the game
 
 ### 9.3 Getting Help
 
 If issues persist:
 1. Contact your instructor
-2. Report issues at: https://github.com/anthropics/claude-code/issues
+2. Report issues at: https://github.com/cocheuno/HawkOps/issues
 3. Check system status with IT support
 
 ---

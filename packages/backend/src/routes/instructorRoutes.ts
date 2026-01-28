@@ -62,6 +62,11 @@ router.get('/games/:gameId/sla-status', (req, res) =>
   instructorController.getSLAStatus(req, res)
 );
 
+// Get game timing configuration (duration-aware SLA, escalation, etc.)
+router.get('/games/:gameId/timing-config', (req, res) =>
+  instructorController.getGameTimingConfig(req, res)
+);
+
 // Stakeholder communication routes
 router.post('/games/:gameId/stakeholder-comm', (req, res) =>
   stakeholderController.generateCommunication(req, res)
