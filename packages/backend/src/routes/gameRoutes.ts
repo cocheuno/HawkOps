@@ -30,6 +30,9 @@ router.post('/:gameId/resume', (req, res) => gameController.resumeGame(req, res)
 // End a game
 router.post('/:gameId/end', (req, res) => gameController.endGame(req, res));
 
+// Delete a game
+router.delete('/:gameId', (req, res) => gameController.deleteGame(req, res));
+
 // Service Health endpoints
 router.get('/:gameId/service-health', (req, res) => gameController.getServiceHealth(req, res));
 router.post('/:gameId/initialize-services', (req, res) => gameController.initializeServices(req, res));

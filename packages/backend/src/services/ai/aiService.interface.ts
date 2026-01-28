@@ -5,8 +5,8 @@
  * Implementations exist for Anthropic Claude and Google Gemini.
  *
  * To switch providers, set the AI_PROVIDER environment variable:
- *   AI_PROVIDER=claude   (default) - Uses Anthropic Claude API
- *   AI_PROVIDER=gemini              - Uses Google Gemini API
+ *   AI_PROVIDER=gemini   (default) - Uses Google Gemini API
+ *   AI_PROVIDER=claude              - Uses Anthropic Claude API
  */
 
 /** Response from a text generation call */

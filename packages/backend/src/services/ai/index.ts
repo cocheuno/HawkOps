@@ -8,7 +8,7 @@ import logger from '../../utils/logger';
  * AI Service Factory
  *
  * Creates the appropriate AI service based on the AI_PROVIDER environment variable.
- * Defaults to 'claude' if not set.
+ * Defaults to 'gemini' if not set.
  *
  * Usage:
  *   import { aiService } from '../services/ai';

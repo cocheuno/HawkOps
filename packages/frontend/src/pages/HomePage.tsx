@@ -28,6 +28,8 @@ export default function HomePage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [savedGames, setSavedGames] = useState<SavedGame[]>([]);
   const [loadingGames, setLoadingGames] = useState(false);
+  const [aiModelInfo, setAiModelInfo] = useState<{ provider: string; model: string } | null>(null);
+  const [deletingGameId, setDeletingGameId] = useState<string | null>(null);
 
   // Fetch saved games for instructor
   const fetchSavedGames = async () => {
@@ -42,6 +44,34 @@ export default function HomePage() {
     }
   };
 
+  // Fetch AI model info
+  const fetchAIModelInfo = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/config/ai-info`);
+      setAiModelInfo(response.data);
+    } catch (error) {
+      console.error('Error fetching AI info:', error);
+    }
+  };
+
+  // Delete a game
+  const handleDeleteGame = async (gameId: string, gameName: string) => {
+    if (!window.confirm(`Are you sure you want to delete "${gameName}"? This will permanently remove the game and all associated data.`)) {
+      return;
+    }
+    setDeletingGameId(gameId);
+    try {
+      await axios.delete(`${API_URL}/games/${gameId}`);
+      toast.success(`Game "${gameName}" deleted successfully`);
+      setSavedGames(prev => prev.filter(g => g.id !== gameId));
+    } catch (error: any) {
+      const msg = error.response?.data?.error || 'Failed to delete game';
+      toast.error(msg);
+    } finally {
+      setDeletingGameId(null);
+    }
+  };
+
   // Check if previously logged in
   useEffect(() => {
     const savedRole = localStorage.getItem('hawkops_role');
@@ -53,6 +83,7 @@ export default function HomePage() {
       setLoggedIn(true);
       if (savedRole === 'instructor') {
         fetchSavedGames();
+        fetchAIModelInfo();
       }
     }
   }, []);
@@ -79,6 +110,7 @@ export default function HomePage() {
         setLoggedIn(true);
         toast.success('Welcome, Instructor!');
         fetchSavedGames();
+        fetchAIModelInfo();
 
         // If there's an active game, offer to navigate to it
         if (data.activeGame) {
@@ -264,6 +296,16 @@ export default function HomePage() {
                 </button>
               </div>
 
+              {aiModelInfo && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800">
+                    <span className="font-semibold">AI Provider:</span>{' '}
+                    <span className="font-bold">{aiModelInfo.provider === 'gemini' ? 'Google Gemini' : 'Anthropic Claude'}</span>{' '}
+                    <span className="text-blue-600">({aiModelInfo.model})</span>
+                  </p>
+                </div>
+              )}
+
               <button
                 onClick={handleCreateGame}
                 className="w-full bg-hawk-purple hover:bg-purple-800 text-white font-semibold py-3 px-6 rounded-lg transition-colors mb-4"
@@ -304,19 +346,29 @@ export default function HomePage() {
                             {game.startedAt && ` - Started ${new Date(game.startedAt).toLocaleDateString()}`}
                           </p>
                         </div>
-                        <button
-                          onClick={() => handleResumeGame(game.id)}
-                          className={`px-4 py-2 rounded text-sm font-semibold transition-colors ${
-                            game.status === 'completed'
-                              ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                              : 'bg-hawk-purple text-white hover:bg-purple-800'
-                          }`}
-                        >
-                          {game.status === 'paused' ? 'Resume' :
-                           game.status === 'completed' ? 'View Results' :
-                           game.status === 'lobby' ? 'Set Up' :
-                           'Manage'}
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleResumeGame(game.id)}
+                            className={`px-4 py-2 rounded text-sm font-semibold transition-colors ${
+                              game.status === 'completed'
+                                ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                : 'bg-hawk-purple text-white hover:bg-purple-800'
+                            }`}
+                          >
+                            {game.status === 'paused' ? 'Resume' :
+                             game.status === 'completed' ? 'View Results' :
+                             game.status === 'lobby' ? 'Set Up' :
+                             'Manage'}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteGame(game.id, game.name)}
+                            disabled={deletingGameId === game.id || game.status === 'active'}
+                            title={game.status === 'active' ? 'End or pause the game before deleting' : 'Delete game'}
+                            className="px-3 py-2 rounded text-sm font-semibold transition-colors bg-red-100 text-red-600 hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {deletingGameId === game.id ? '...' : 'Delete'}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
