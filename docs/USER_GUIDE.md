@@ -346,15 +346,22 @@ For each document:
 
 Once scenario is generated and students are assigned:
 
-1. Verify all students are in teams
-2. Click **"2. Start Game"** (only available after scenario generation)
-3. The game will:
+1. **Students can join before starting**: Students who log in while the game is in LOBBY status will see a **Waiting Room** where they can:
+   - See their team assignment and teammates
+   - Mark themselves as "Ready"
+   - Review role-specific quick start guides
+   - Wait for the game to begin
+
+2. Verify all students are in teams and ready
+3. Click **"2. Start Game"** (only available after scenario generation)
+4. The game will:
    - Initialize all services and dependencies
-   - Set up escalation rules
+   - Set up duration-aware escalation rules (scaled to game length)
    - Create team resources and budgets
    - Begin the simulation timer
+   - Automatically transition all students from Waiting Room to their team dashboards
 
-**Important**: Ensure students are logged in before starting!
+**Tip**: Allow students to join the Waiting Room a few minutes before starting so they can familiarize themselves with their role and mark themselves ready.
 
 ### 4.7 Running the Game
 
@@ -982,13 +989,21 @@ Weight = Service Criticality (1-10)
 
 ### 6.7 Escalation System
 
-**Automatic Escalation Triggers:**
+**Duration-Aware Escalation Thresholds:**
 
-| Priority | Level 1 | Level 2 | Level 3 |
-|----------|---------|---------|---------|
-| Critical | 15 min | 30 min | 45 min |
-| High | 30 min | 60 min | 120 min |
-| Medium | 60 min | 120 min | 240 min |
+Escalation triggers are calculated as percentages of each incident's SLA time, ensuring appropriate urgency regardless of game duration:
+
+| Level | % of SLA Elapsed | Typical Time (Critical, 75-min game) |
+|-------|------------------|--------------------------------------|
+| L1 | 50% | ~7 min |
+| L2 | 75% | ~11 min |
+| L3 | 95% | ~14 min |
+
+**Example for a 30-minute game (Critical incident):**
+- SLA Target: ~6 min (20% of 30 min)
+- L1 Escalation: ~3 min (50% of SLA)
+- L2 Escalation: ~4.5 min (75% of SLA)
+- L3 Escalation: ~5.7 min (95% of SLA)
 
 **Escalation Consequences:**
 - Priority bump
@@ -1109,7 +1124,11 @@ Challenges are time-limited opportunities for bonus points.
 
 **Challenge Mechanics:**
 - Appear every 15-20 minutes
-- 30-180 minute completion windows
+- Duration-aware completion windows (scale with game length):
+  - Quick challenges: ~10% of game time (3-15 min)
+  - Standard challenges: ~25% of game time (7-45 min)
+  - Long challenges: ~50% of game time (15-60 min)
+- Windows are capped to remaining game time
 - 250-500 point rewards
 - Progress tracked in real-time
 
@@ -1126,7 +1145,7 @@ Challenges are time-limited opportunities for bonus points.
 **Solutions:**
 1. Verify email matches what instructor registered
 2. Ask instructor to add you to a team
-3. Check if game has started (students can only join active games)
+3. Students can join games in LOBBY or ACTIVE status (if joining in Lobby, you'll see the Waiting Room)
 
 #### Dashboard Not Loading
 
