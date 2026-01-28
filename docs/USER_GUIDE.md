@@ -16,8 +16,9 @@ An ITSM Business Simulation for UW-Whitewater
 6. [Game Mechanics](#6-game-mechanics)
 7. [Scoring & Leaderboards](#7-scoring--leaderboards)
 8. [Achievements & Challenges](#8-achievements--challenges)
-9. [Troubleshooting](#9-troubleshooting)
-10. [Glossary](#10-glossary)
+9. [AI Agents](#9-ai-agents)
+10. [Troubleshooting](#10-troubleshooting)
+11. [Glossary](#11-glossary)
 
 ---
 
@@ -1134,9 +1135,511 @@ Challenges are time-limited opportunities for bonus points.
 
 ---
 
-## 9. Troubleshooting
+## 9. AI Agents
 
-### 9.1 Common Issues
+HawkOps includes an AI Agent system that can autonomously play as team members in simulations. Agents use AI to perceive the game state, make decisions, and take actions just like human players would.
+
+### 9.1 What Are Agents?
+
+Agents are autonomous AI-powered participants that can:
+- Monitor incidents and SLA timers
+- Triage and categorize incoming tickets
+- Create implementation plans for incident resolution
+- Submit change requests for approval
+- Review and approve changes (as CAB members)
+- Escalate issues appropriately
+- Respond to stakeholder communications
+
+Each agent operates on a **perceive-decide-act loop**:
+1. **Perceive**: Observe the current game state (incidents, SLAs, team health)
+2. **Decide**: Use AI to determine the best action based on priorities
+3. **Act**: Execute the chosen action through the game API
+4. **Wait**: Pause briefly before the next cycle
+
+### 9.2 Why Use Agents?
+
+#### Demonstrations and Trade Shows
+Run a live HawkOps demonstration without needing student volunteers. Agents can showcase the full simulation experience, including:
+- Real-time incident management
+- CAB approval workflows
+- SLA monitoring and escalation
+
+#### Testing and QA
+Test new scenarios, difficulty levels, and game mechanics:
+- Verify incidents are appropriately challenging
+- Test that workflows function correctly
+- Identify edge cases before classroom use
+
+#### Training Scenarios
+Train new students or instructors by observing agent behavior:
+- Watch how experienced "players" handle incidents
+- Learn best practices for prioritization
+- Understand CAB approval workflows
+
+#### Hybrid Teams
+Combine human and AI players:
+- Fill empty roster spots when students are absent
+- Provide opposition or collaboration for small classes
+- Create asymmetric scenarios (humans vs AI team)
+
+#### Solo Practice
+Students can practice individually with AI teammates:
+- Learn workflows without peer pressure
+- Experiment with different approaches
+- Practice off-hours when no classmates are available
+
+### 9.3 Agent Roles
+
+HawkOps provides three specialized agent types that mirror the human team roles:
+
+#### Service Desk Agent
+
+**Primary Responsibilities:**
+- First response to all incoming incidents
+- Triage and categorization
+- SLA monitoring and escalation
+- Stakeholder communication
+
+**Decision Priorities:**
+1. Address SLA-breached incidents immediately
+2. Escalate critical/high priority incidents at risk
+3. Start work on new open incidents
+4. Resolve L1-appropriate issues (password resets, access, simple fixes)
+5. Escalate complex technical issues to Tech Ops
+
+**L1 Resolution Patterns:**
+The Service Desk agent can resolve simple issues matching these patterns:
+- Password resets and account unlocks
+- Access permission requests
+- VPN connectivity issues
+- Software installation requests
+- Basic network troubleshooting
+
+#### Technical Operations Agent
+
+**Primary Responsibilities:**
+- Technical investigation and diagnosis
+- Root cause analysis
+- Implementation plan creation
+- Change request submission
+- System modifications and fixes
+
+**Decision Priorities:**
+1. Handle SLA-breached incidents
+2. Create implementation plans for critical unplanned work
+3. Submit draft plans for AI review
+4. Create change requests for approved plans
+5. Revise rejected plans based on feedback
+6. Start work on assigned incidents
+7. Resolve incidents with approved changes
+
+**AI-Powered Planning:**
+The Tech Ops agent uses AI to generate implementation plans that include:
+- Root cause analysis
+- Step-by-step implementation instructions
+- Risk assessment and mitigation
+- Rollback procedures
+
+#### Management Agent
+
+**Primary Responsibilities:**
+- Change Advisory Board (CAB) review
+- Change approval/rejection decisions
+- Risk assessment
+- Team health monitoring
+- Management escalation
+
+**Decision Priorities:**
+1. Review emergency changes immediately
+2. Evaluate high-risk change requests thoroughly
+3. Process standard change requests
+4. Monitor for multiple SLA breaches (management attention)
+
+**AI-Powered Review:**
+The Management agent uses AI to evaluate change requests considering:
+- Implementation completeness
+- Rollback plan adequacy
+- Risk vs benefit analysis
+- Technical feasibility
+
+### 9.4 Agent Personalities
+
+Each agent can be configured with a personality that affects decision-making thresholds:
+
+#### Cautious Personality
+
+**Behavior:**
+- Escalates incidents earlier (lower thresholds)
+- Requires thorough documentation before approving changes
+- Avoids quick fixes that might increase technical debt
+- More likely to reject high-risk changes without technical review
+
+**Best For:**
+- Teaching conservative ITSM practices
+- Demonstrating proper escalation procedures
+- Emphasizing documentation importance
+
+#### Balanced Personality (Default)
+
+**Behavior:**
+- Follows standard ITSM best practices
+- Moderate escalation thresholds
+- Reasonable risk tolerance for change approvals
+- Balances speed with quality
+
+**Best For:**
+- General demonstrations
+- Typical classroom simulations
+- Realistic workplace scenarios
+
+#### Aggressive Personality
+
+**Behavior:**
+- Quick decision-making under SLA pressure
+- More willing to approve changes with minimal documentation
+- Handles more issues at L1 level before escalating
+- Faster response times but may incur more technical debt
+
+**Best For:**
+- High-pressure scenarios
+- Demonstrating speed vs quality tradeoffs
+- Challenging advanced students
+
+### 9.5 Setting Up Agents
+
+#### Prerequisites
+
+1. **Game Setup**: Create and configure a game as normal
+2. **API Access**: Agents need valid authentication credentials
+3. **AI Configuration**: Agents require a Gemini API key (same as game AI)
+4. **Player Accounts**: Create player accounts for agents to use
+
+#### Creating Agent Player Accounts
+
+In the Instructor Dashboard:
+
+1. Navigate to **Manage Students**
+2. Add players for agent use:
+   ```
+   Agent-ServiceDesk, Bot, agent-sd@hawkops.local
+   Agent-TechOps, Bot, agent-tech@hawkops.local
+   Agent-Management, Bot, agent-mgmt@hawkops.local
+   ```
+3. Assign these players to teams as needed
+
+**Note**: Use a consistent naming convention (e.g., "Agent-" prefix) to distinguish AI players from humans on leaderboards and in analytics.
+
+#### Environment Configuration
+
+Set up the required environment variables:
+
+```bash
+# Required
+export GEMINI_API_KEY=your_gemini_api_key
+
+# Optional (can also pass via CLI flags)
+export HAWKOPS_API_URL=http://localhost:3000/api
+export HAWKOPS_GAME_ID=your_game_id
+export HAWKOPS_TEAM_ID=your_team_id
+export HAWKOPS_PLAYER_ID=your_player_id
+export HAWKOPS_ACCESS_TOKEN=your_access_token
+```
+
+### 9.6 Running Agents
+
+#### Installation
+
+From the HawkOps project root:
+
+```bash
+cd packages/agents
+npm install
+npm run build
+```
+
+#### Command Line Interface
+
+**Basic Usage:**
+
+```bash
+npm run agent run \
+  --game-id <GAME_ID> \
+  --team-id <TEAM_ID> \
+  --player-id <PLAYER_ID> \
+  --access-token <TOKEN> \
+  --role <ROLE> \
+  --personality <PERSONALITY>
+```
+
+**CLI Options:**
+
+| Option | Required | Default | Description |
+|--------|----------|---------|-------------|
+| `-g, --game-id` | Yes | - | Game ID to join |
+| `-t, --team-id` | Yes | - | Team ID to join |
+| `-p, --player-id` | Yes | - | Player ID for the agent |
+| `-a, --access-token` | Yes | - | Authentication token |
+| `-u, --api-url` | No | http://localhost:3000/api | API base URL |
+| `-r, --role` | No | full_team | Agent role(s) |
+| `--personality` | No | balanced | Agent personality |
+| `--poll-interval` | No | 5000 | State polling interval (ms) |
+| `--decision-delay` | No | 3000 | Delay between actions (ms) |
+| `-v, --verbose` | No | true | Enable detailed logging |
+| `-q, --quiet` | No | false | Disable verbose output |
+
+**Role Options:**
+- `service_desk` - Service Desk agent only
+- `tech_ops` - Technical Operations agent only
+- `management` - Management/CAB agent only
+- `full_team` - All three agents working together
+- `service_desk,tech_ops` - Multiple specific roles (comma-separated)
+
+#### Example Commands
+
+**Run a full AI team:**
+```bash
+npm run agent run \
+  -g abc123 -t team1 -p agent1 -a token123 \
+  --role full_team \
+  --personality balanced
+```
+
+**Run an aggressive service desk agent:**
+```bash
+npm run agent run \
+  -g abc123 -t team1 -p agent1 -a token123 \
+  --role service_desk \
+  --personality aggressive
+```
+
+**Run tech ops and management together:**
+```bash
+npm run agent run \
+  -g abc123 -t team1 -p agent1 -a token123 \
+  --role tech_ops,management \
+  --personality cautious
+```
+
+**View help and role information:**
+```bash
+npm run agent info
+```
+
+### 9.7 Agent Configuration Scenarios
+
+#### Scenario 1: Full AI Demo
+
+Run a complete demonstration with AI handling all roles:
+
+```
+Game Setup:
+- Team 1: Full AI Team (all 3 agents)
+- No human players
+
+Agent Configuration:
+- Role: full_team
+- Personality: balanced
+- Poll interval: 3000ms (faster for demos)
+```
+
+**Use Case**: Trade show demonstrations, instructor training.
+
+#### Scenario 2: AI Opposition Team
+
+Humans compete against an AI team:
+
+```
+Game Setup:
+- Team 1: Human students (Service Desk, Tech Ops, Management)
+- Team 2: AI agents (full_team)
+
+Agent Configuration:
+- Role: full_team
+- Personality: aggressive (challenging opponent)
+```
+
+**Use Case**: Competitive scenarios, advanced student challenges.
+
+#### Scenario 3: AI Fills Gaps
+
+Use agents to fill missing team roles:
+
+```
+Game Setup:
+- Team 1: Human Service Desk, Human Tech Ops, AI Management
+- Team 2: Human Service Desk, AI Tech Ops, Human Management
+
+Agent Configuration:
+- Role: management (for Team 1 gap)
+- Role: tech_ops (for Team 2 gap)
+- Personality: balanced
+```
+
+**Use Case**: Small classes, absent students.
+
+#### Scenario 4: Training Mode
+
+Students observe AI handling incidents before taking over:
+
+```
+Game Setup:
+- Team 1: AI agents running initially
+- Switch to human players mid-game
+
+Agent Configuration:
+- Role: full_team
+- Personality: cautious (demonstrates best practices)
+- Poll interval: 8000ms (slower, easier to observe)
+```
+
+**Use Case**: New student onboarding, ITSM training.
+
+#### Scenario 5: Solo Practice
+
+Single student practices with AI teammates:
+
+```
+Game Setup:
+- Team 1: Human (Service Desk), AI Tech Ops, AI Management
+
+Agent Configuration:
+- Role: tech_ops,management
+- Personality: balanced
+```
+
+**Use Case**: Individual practice, off-hours learning.
+
+### 9.8 Monitoring Agent Activity
+
+#### Console Output
+
+When running with `--verbose`, agents log all activities:
+
+```
+[ServiceDeskAgent] Perceiving game state...
+[ServiceDeskAgent] Found 3 open incidents, 1 at SLA risk
+[ServiceDeskAgent] Deciding action...
+[ServiceDeskAgent] Decision: escalate INC-007 - SLA at risk, needs Tech Ops
+[ServiceDeskAgent] Executing: escalate - Critical incident approaching SLA breach
+[ServiceDeskAgent] Successfully escalated INC-007
+```
+
+#### Game Dashboard
+
+Agent activities appear in the same places as human activities:
+- Incident status changes show in incident timelines
+- Implementation plans appear in the Plans tab
+- Change requests appear in the Changes tab
+- Actions log to the team activity feed
+
+#### Identifying Agent Actions
+
+Agent actions are logged with the agent's player ID, making it easy to:
+- Filter analytics by human vs AI players
+- Review agent decision patterns
+- Evaluate agent performance
+
+### 9.9 Tuning Agent Behavior
+
+#### Poll Interval
+
+Controls how frequently agents check the game state:
+
+| Setting | Behavior | Use Case |
+|---------|----------|----------|
+| 2000-3000ms | Very responsive | Fast demos, competitive scenarios |
+| 5000ms (default) | Balanced | Normal gameplay |
+| 8000-10000ms | Deliberate | Training/observation mode |
+
+#### Decision Delay
+
+Controls the pause between perceive and act:
+
+| Setting | Behavior | Use Case |
+|---------|----------|----------|
+| 1000-2000ms | Rapid actions | High-pressure scenarios |
+| 3000ms (default) | Natural pacing | Normal gameplay |
+| 5000-8000ms | Thoughtful | Observable decision-making |
+
+#### Personality Selection
+
+Choose personality based on learning objectives:
+
+| Objective | Recommended Personality |
+|-----------|------------------------|
+| Teach escalation procedures | Cautious |
+| Demonstrate real-world pace | Balanced |
+| Challenge advanced students | Aggressive |
+| Show consequences of shortcuts | Aggressive (then review technical debt) |
+
+### 9.10 Limitations and Considerations
+
+#### Current Limitations
+
+- **No Inter-Agent Communication**: Agents don't coordinate directly; they react to game state
+- **API-Based Actions Only**: Agents can only perform actions available through the game API
+- **Single Game Instance**: Each agent instance connects to one game
+- **Requires Stable Connection**: Network interruptions may cause agents to miss state changes
+
+#### Best Practices
+
+1. **Start Game Before Agents**: Ensure the game is in ACTIVE status before starting agents
+2. **Monitor Initially**: Watch agent behavior for the first few minutes to ensure proper operation
+3. **Use Descriptive Names**: Name agent players clearly (e.g., "AI-ServiceDesk") for easy identification
+4. **Adjust Pacing**: Slower poll intervals make agent behavior easier to observe and learn from
+5. **Review Analytics**: After games, review agent performance metrics for insights
+
+#### Ethical Considerations
+
+- **Transparency**: Always disclose when AI agents are participating in a simulation
+- **Learning Focus**: Use agents to enhance learning, not replace human interaction
+- **Fair Competition**: When humans compete against AI, ensure difficulty is appropriate
+- **Assessment Validity**: For graded simulations, ensure proper mix of human/AI participation
+
+### 9.11 Troubleshooting Agents
+
+#### Agent Won't Connect
+
+**Symptoms**: "Failed to refresh game state" errors
+
+**Solutions**:
+1. Verify game is in ACTIVE status
+2. Check API URL is correct
+3. Confirm access token is valid
+4. Ensure player is assigned to the specified team
+
+#### Agent Not Taking Actions
+
+**Symptoms**: Agent logs "No action needed" repeatedly
+
+**Solutions**:
+1. Inject incidents to give agents work
+2. Check team has open incidents assigned
+3. Verify agent role matches available work (e.g., Management agent needs pending changes)
+
+#### Agent Making Wrong Decisions
+
+**Symptoms**: Agent escalates too often or not enough
+
+**Solutions**:
+1. Try a different personality setting
+2. Adjust decision delay for more deliberate behavior
+3. Review incident priorities and SLA settings
+
+#### High API Load
+
+**Symptoms**: Backend slowing down with multiple agents
+
+**Solutions**:
+1. Increase poll interval (e.g., 8000ms)
+2. Reduce number of concurrent agents
+3. Run agents on separate machine from backend
+
+---
+
+## 10. Troubleshooting
+
+### 10.1 Common Issues
 
 #### Can't Log In
 
@@ -1175,7 +1678,7 @@ Challenges are time-limited opportunities for bonus points.
 2. Refresh the page
 3. Report to instructor if persists
 
-### 9.2 Instructor Issues
+### 10.2 Instructor Issues
 
 #### Service Health Not Showing
 
@@ -1196,7 +1699,7 @@ Challenges are time-limited opportunities for bonus points.
 3. Check student is assigned to a team
 4. If game is in "Lobby", students will see a Waiting Room until the instructor starts the game
 
-### 9.3 Getting Help
+### 10.3 Getting Help
 
 If issues persist:
 1. Contact your instructor
@@ -1205,10 +1708,11 @@ If issues persist:
 
 ---
 
-## 10. Glossary
+## 11. Glossary
 
 | Term | Definition |
 |------|------------|
+| **Agent** | Autonomous AI participant that plays as a team member in simulations |
 | **CAB** | Change Advisory Board - group that reviews and approves changes |
 | **CI** | Configuration Item - any component that needs to be managed |
 | **CMDB** | Configuration Management Database - tracks all IT assets |
@@ -1218,6 +1722,8 @@ If issues persist:
 | **ITSM** | IT Service Management |
 | **MTTR** | Mean Time To Resolve - average resolution time |
 | **PIR** | Post-Incident Review - formal review after incidents |
+| **Perceive-Decide-Act** | Agent behavior loop: observe state, choose action, execute |
+| **Personality** | Agent configuration affecting decision thresholds (cautious/balanced/aggressive) |
 | **Priority** | Urgency of incident resolution (Critical/High/Medium/Low) |
 | **Problem** | Root cause of one or more incidents |
 | **RTO** | Recovery Time Objective - target time to restore service |
